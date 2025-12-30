@@ -25,10 +25,12 @@ dist/
 *.swo
 
 # SQLite databases
-backend/data/*.db
+data/*.db
+backend-python/data/*.db
 
 # Temp data
-backend/data/temp/
+data/temp/
+backend-python/data/temp/
 
 # PRD (local only)
 prd/

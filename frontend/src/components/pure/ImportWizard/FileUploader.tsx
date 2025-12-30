@@ -2,13 +2,14 @@ import { Upload } from "antd";
 import { InboxOutlined } from "@ant-design/icons";
 
 export interface FileUploaderProps {
-  onUpload: (file: File) => void;
+  onUpload: (file: File, type: "excel" | "database") => void;
   loading?: boolean;
 }
 
 export function FileUploader({ onUpload, loading }: FileUploaderProps) {
   const handleBeforeUpload = (file: File) => {
-    onUpload(file);
+    const isDatabase = file.name.toLowerCase().endsWith(".db");
+    onUpload(file, isDatabase ? "database" : "excel");
     return false; // Prevent auto upload
   };
 
@@ -16,7 +17,7 @@ export function FileUploader({ onUpload, loading }: FileUploaderProps) {
     <div className="file-uploader">
       <Upload.Dragger
         name="file"
-        accept=".xlsx,.xls"
+        accept=".xlsx,.xls,.db"
         beforeUpload={handleBeforeUpload}
         showUploadList={false}
         disabled={loading}
@@ -25,11 +26,10 @@ export function FileUploader({ onUpload, loading }: FileUploaderProps) {
           <InboxOutlined />
         </p>
         <p className="ant-upload-text">
-          Click or drag Excel file to this area to upload
+          Click or drag file to this area to upload
         </p>
         <p className="ant-upload-hint">
-          Supports .xlsx and .xls files. Each sheet will be imported as a separate
-          account.
+          Supports Excel files (.xlsx, .xls) or SQLite database files (.db)
         </p>
       </Upload.Dragger>
     </div>

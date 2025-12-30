@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { adminApi } from "../api";
-import type { DbInfo, ImportResult } from "../types";
+import type { DbInfo } from "../types";
 
 interface UseDbInfoResult {
   databases: DbInfo[];
@@ -91,36 +91,4 @@ export function useExcludedCategories(): UseExcludedCategoriesResult {
     updateExcluded,
     refetch: fetchExcluded,
   };
-}
-
-interface UseImportResult {
-  importFile: (file: File) => Promise<ImportResult>;
-  isImporting: boolean;
-  lastResult: ImportResult | null;
-  error: Error | null;
-}
-
-export function useImport(): UseImportResult {
-  const [isImporting, setIsImporting] = useState(false);
-  const [lastResult, setLastResult] = useState<ImportResult | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-
-  const importFile = useCallback(async (file: File): Promise<ImportResult> => {
-    setIsImporting(true);
-    setError(null);
-    try {
-      const result = await adminApi.importExcel(file);
-      setLastResult(result);
-      return result;
-    } catch (err) {
-      const error =
-        err instanceof Error ? err : new Error("Failed to import file");
-      setError(error);
-      throw error;
-    } finally {
-      setIsImporting(false);
-    }
-  }, []);
-
-  return { importFile, isImporting, lastResult, error };
 }

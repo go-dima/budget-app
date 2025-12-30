@@ -1,44 +1,70 @@
 # Budget Viewer
 
-A budget viewer application for viewing and analyzing bank transaction data from Excel files.
+A budget viewer application for viewing and analyzing bank transaction data from Excel files or existing SQLite databases.
 
 ## Features
 
 - Import bank transactions from Excel files (Hebrew format)
+- Import existing SQLite database files directly
 - View overall and per-account financial summaries
 - Generate reports grouped by month, category, or year
 - Filter transactions by account, category, and date range
 - Manage default excluded categories
+- All data stays on your local machine
+
+## Architecture
+
+The application uses a client-server architecture:
+
+- **Backend**: Node.js/Express with better-sqlite3 for native SQLite operations
+- **Frontend**: React SPA that communicates with the backend via REST API
+- **Storage**: SQLite database files stored in the `data/` folder
 
 ## Tech Stack
 
-- **Backend**: Python, FastAPI, Pydantic, SQLite
-- **Frontend**: TypeScript, React, Vite, Ant Design
-- **Testing**: pytest (backend), Vitest (frontend)
-- **Deployment**: Docker, Docker Compose
+### Backend
+- **Runtime**: Node.js 20+
+- **Framework**: Express.js
+- **Database**: better-sqlite3 (native SQLite bindings)
+- **Excel Parsing**: SheetJS (xlsx)
+- **Language**: TypeScript
+
+### Frontend
+- **Framework**: React 19 with TypeScript
+- **Build Tool**: Vite
+- **UI Library**: Ant Design 6
+- **Testing**: Vitest
+- **Component Docs**: Storybook
 
 ## Project Structure
 
 ```
 budget-app/
-├── backend/           # FastAPI backend
-│   ├── app/
-│   │   ├── models/    # Pydantic models
-│   │   ├── services/  # Business logic
-│   │   ├── routers/   # API endpoints
-│   │   └── utils/     # Utilities (Excel parser)
-│   ├── data/          # SQLite databases
-│   └── tests/
-├── frontend/          # React frontend
+├── backend/               # TypeScript/Express backend
 │   ├── src/
-│   │   ├── api/       # API client
-│   │   ├── components/
-│   │   ├── contexts/  # React contexts
-│   │   ├── hooks/     # Custom hooks
-│   │   ├── pages/
-│   │   └── types/     # TypeScript types
-│   └── tests/
-├── prd/               # Product requirements
+│   │   ├── db/            # Database layer
+│   │   │   ├── SqliteManager.ts
+│   │   │   └── repositories/
+│   │   ├── services/      # Business logic
+│   │   │   ├── AccountService.ts
+│   │   │   ├── ReportService.ts
+│   │   │   ├── AdminService.ts
+│   │   │   └── ImportService.ts
+│   │   ├── routes/        # API routes
+│   │   ├── utils/         # Utilities (Excel parser)
+│   │   └── types/         # TypeScript types
+│   └── Dockerfile
+├── frontend/              # React frontend
+│   ├── src/
+│   │   ├── api/           # API client
+│   │   ├── components/    # UI components
+│   │   ├── contexts/      # React contexts
+│   │   ├── hooks/         # Custom hooks
+│   │   ├── pages/         # Page components
+│   │   └── types/         # TypeScript types
+│   └── Dockerfile
+├── backend-python/        # Legacy Python backend (reference)
+├── data/                  # SQLite database files
 └── docker-compose.yml
 ```
 
@@ -47,77 +73,74 @@ budget-app/
 ### Using Docker (Recommended)
 
 ```bash
-# Build and start all services
+# Build and start the application
 docker-compose up --build
 
-# Access the app
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+# Access the app at http://localhost:3000
+# API available at http://localhost:8000
 ```
 
 ### Manual Development Setup
 
-#### Backend
-
+**Backend:**
 ```bash
 cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the server
-uvicorn app.main:app --reload --port 8000
-
-# Run tests
-pytest tests/ -v
+npm install
+npm run dev     # Development with hot reload
+npm run build   # Build for production
+npm start       # Run production build
 ```
 
-#### Frontend
-
+**Frontend:**
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Run tests
-npm run test
-
-# Run Storybook
-npm run storybook
+npm run dev     # Development server at http://localhost:5173
+npm run build   # Build for production
+npm run test    # Run tests
+npm run storybook  # Component documentation
 ```
+
+## Usage
+
+1. **Start the Application**: Run `docker-compose up` or start both backend and frontend manually
+2. **Import Data**: Go to the Admin page to import data:
+   - **Excel files**: Upload `.xlsx` or `.xls` files - each sheet becomes a separate account
+   - **Database files**: Upload existing `.db` files directly
+3. **View Reports**: Use the Overview and Report pages to analyze your data
+4. **Filter Data**: Use the sidebar filters to narrow down transactions
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/health` | Health check |
 | GET | `/api/accounts` | List all accounts |
+| GET | `/api/accounts/:id` | Get account details |
 | GET | `/api/transactions` | List transactions (with filters) |
-| GET | `/api/reports/overview` | Get overview summary |
-| GET | `/api/reports/aggregated` | Get grouped report |
-| POST | `/api/import/excel` | Import Excel file |
-| GET | `/api/admin/databases` | Get loaded databases info |
-| GET/PUT | `/api/admin/excluded-categories` | Manage excluded categories |
+| GET | `/api/reports/overview` | Get financial overview |
+| GET | `/api/reports/aggregated` | Get aggregated report |
+| GET | `/api/admin/databases` | List loaded databases |
+| DELETE | `/api/admin/databases/:id` | Delete a database |
+| GET | `/api/admin/categories` | Get all categories |
+| GET | `/api/admin/excluded-categories` | Get excluded categories |
+| PUT | `/api/admin/excluded-categories` | Set excluded categories |
+| POST | `/api/import/preview` | Preview Excel file |
+| POST | `/api/import/execute` | Execute Excel import |
+| POST | `/api/import/database` | Import SQLite database |
 
-### Query Parameters for Filtering
+## Data Storage
 
-- `account_ids`: Comma-separated account IDs
-- `categories`: Comma-separated category names
-- `date_from`: Start date (Unix timestamp)
-- `date_to`: End date (Unix timestamp)
-- `group_by`: Grouping option (month, category, year)
+### Database Files
+
+The application stores data in SQLite database files in the `data/` folder:
+
+- `accounts.db` - Account metadata and settings
+- `settings.db` - Application settings (excluded categories)
+- `{account_name}.db` - Transaction data per account
+
+### Docker Volume
+
+When running with Docker, the `./data` folder is mounted into the container, ensuring data persists between restarts.
 
 ## Excel File Format
 
@@ -137,55 +160,31 @@ The application expects Excel files with Hebrew column headers:
 
 Each sheet in the Excel file represents a different account.
 
-## Sample Data
-
-A sample Excel file is available at: `prd/Flow Test.xlsx`
-
 ## Environment Variables
 
 ### Backend
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BUDGET_DB_PATH` | `./data` | Path to SQLite databases |
-| `BUDGET_CORS_ORIGINS` | `["http://localhost:3000","http://localhost:5173"]` | CORS allowed origins |
+- `PORT` - Server port (default: 8000)
+- `BUDGET_DB_PATH` - Path to data folder (default: `../data`)
+- `BUDGET_CORS_ORIGINS` - Allowed CORS origins (comma-separated or JSON array)
 
 ### Frontend
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_API_URL` | `http://localhost:8000/api` | Backend API URL |
+- `VITE_API_URL` - Backend API URL (default: `http://localhost:8000`)
 
 ## Development
 
-### Rebuilding After Code Changes
+### Code Quality
 
-After modifying backend or frontend code, rebuild the application:
-
-```bash
-# Rebuild with Docker
-docker-compose up --build
-
-# Or rebuild manually:
-
-# Backend (no build step needed, just restart)
-cd backend && uvicorn app.main:app --reload --port 8000
-
-# Frontend
-cd frontend && npm run build
-
-# For development with hot reload
-cd frontend && npm run dev
-```
-
-### Backend Testing
+The project uses pre-commit hooks:
 
 ```bash
-cd backend
-pytest tests/ -v
+# Install pre-commit hooks
+pre-commit install
+
+# Run hooks manually
+pre-commit run --all-files
 ```
 
-### Frontend Testing
+### Testing
 
 ```bash
 cd frontend

@@ -36,7 +36,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
   const refreshCategories = useCallback(async () => {
     try {
       const [categories, excluded] = await Promise.all([
-        adminApi.getAllCategories(),
+        adminApi.getCategories(),
         adminApi.getExcludedCategories(),
       ]);
       setAllCategories(categories);
@@ -46,9 +46,9 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const refreshAccounts = useCallback(async () => {
+  const refreshAccounts = useCallback(async (updateDateRange = false) => {
     try {
-      const accounts = await accountsApi.getAll();
+      const accounts = await accountsApi.list();
       // Find the latest transaction date across all accounts
       const latestDate = accounts.reduce<number | null>((latest, account) => {
         if (account.last_transaction_date === null) return latest;
@@ -57,8 +57,8 @@ export function FilterProvider({ children }: { children: ReactNode }) {
       }, null);
       setLastTransactionDate(latestDate);
 
-      // Set initial date range based on last transaction (only once)
-      if (!dateRangeInitialized && latestDate !== null) {
+      // Set date range based on last transaction (on init or when forced)
+      if ((!dateRangeInitialized || updateDateRange) && latestDate !== null) {
         const lastDate = new Date(latestDate * 1000);
         const range = getDateRangeOneYearBack(lastDate);
         setFilters((prev) => ({ ...prev, dateRange: range }));

@@ -12,6 +12,7 @@ import type {
   ImportExecuteResponse,
   ImportMode,
 } from "../../../types";
+import type { DbImportResult } from "../../../api/admin";
 import { SheetSelector } from "./SheetSelector";
 import { HeaderMapper } from "./HeaderMapper";
 import { ImportModeSelector } from "./ImportModeSelector";
@@ -22,6 +23,7 @@ import "./ImportWizard.css";
 export interface ImportWizardProps {
   onPreview: (file: File) => Promise<FilePreviewResponse>;
   onExecute: (fileId: string, configs: SheetImportConfig[]) => Promise<ImportExecuteResponse>;
+  onImportDatabase?: (file: File) => Promise<DbImportResult>;
   onComplete?: () => void;
 }
 
@@ -48,7 +50,7 @@ const steps = [
   },
 ];
 
-export function ImportWizard({ onPreview, onExecute, onComplete }: ImportWizardProps) {
+export function ImportWizard({ onPreview, onExecute, onImportDatabase, onComplete }: ImportWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +60,45 @@ export function ImportWizard({ onPreview, onExecute, onComplete }: ImportWizardP
   const [configs, setConfigs] = useState<SheetImportConfig[]>([]);
   const [result, setResult] = useState<ImportExecuteResponse | null>(null);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, type: "excel" | "database") => {
     setLoading(true);
     setError(null);
+
+    if (type === "database") {
+      // Direct database import - skip wizard steps
+      if (!onImportDatabase) {
+        setError("Database import is not supported");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const dbResult = await onImportDatabase(file);
+        // Convert to ImportExecuteResponse format
+        setResult({
+          success: dbResult.success,
+          results: [{
+            sheet_name: dbResult.account_name,
+            account_name: dbResult.account_name,
+            success: dbResult.success,
+            rows_imported: dbResult.rows_imported,
+            rows_skipped: 0,
+            error: dbResult.error ?? null,
+          }],
+          total_rows_imported: dbResult.rows_imported,
+          total_rows_skipped: 0,
+        });
+        setCurrentStep(4);
+        onComplete?.();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to import database");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Excel file - proceed with wizard
     try {
       const previewData = await onPreview(file);
       setPreview(previewData);
@@ -134,6 +172,8 @@ export function ImportWizard({ onPreview, onExecute, onComplete }: ImportWizardP
       const executeResult = await onExecute(preview.file_id, configs);
       setResult(executeResult);
       setCurrentStep(4);
+      // Refresh data immediately after successful import
+      onComplete?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to execute import");
     } finally {

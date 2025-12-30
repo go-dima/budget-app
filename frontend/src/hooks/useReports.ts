@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { reportsApi } from "../api";
 import { useFilterContext } from "../contexts";
+import { reportsApi } from "../api";
 import type {
   AggregatedReportItem,
   GroupByOption,

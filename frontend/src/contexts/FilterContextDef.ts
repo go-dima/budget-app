@@ -13,7 +13,7 @@ export interface FilterContextValue {
   setDateRangeFromToday: () => void;
   resetFilters: () => void;
   refreshCategories: () => Promise<void>;
-  refreshAccounts: () => Promise<void>;
+  refreshAccounts: (updateDateRange?: boolean) => Promise<void>;
 }
 
 export const FilterContext = createContext<FilterContextValue | null>(null);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { transactionsApi } from "../api";
 import { useFilterContext } from "../contexts";
+import { transactionsApi } from "../api";
 import type { Transaction } from "../types";
 
 interface UseTransactionsResult {
@@ -20,7 +20,7 @@ export function useTransactions(): UseTransactionsResult {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await transactionsApi.getAll(filters);
+      const data = await transactionsApi.list(filters);
       setTransactions(data);
     } catch (err) {
       setError(

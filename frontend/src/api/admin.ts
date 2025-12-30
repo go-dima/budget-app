@@ -1,72 +1,41 @@
-import type {
-  DbInfo,
-  FilePreviewResponse,
-  ImportExecuteResponse,
-  ImportRequest,
-  ImportResult,
-} from "../types";
-import apiClient from "./client";
+import { api } from "./client";
+import type { DbInfo, FilePreviewResponse, ImportRequest, ImportExecuteResponse } from "../types";
 
 export const adminApi = {
-  getDatabases: async (): Promise<DbInfo[]> => {
-    const response = await apiClient.get<DbInfo[]>("/admin/databases");
-    return response.data;
-  },
+  getDatabases: (): Promise<DbInfo[]> => api.get("/api/admin/databases"),
 
-  deleteDatabase: async (accountId: string): Promise<void> => {
-    await apiClient.delete(`/admin/databases/${accountId}`);
-  },
+  deleteDatabase: (accountId: string): Promise<{ success: boolean }> =>
+    api.delete(`/api/admin/databases/${accountId}`),
 
-  getAllCategories: async (): Promise<string[]> => {
-    const response = await apiClient.get<string[]>("/admin/categories");
-    return response.data;
-  },
+  getCategories: (): Promise<string[]> => api.get("/api/admin/categories"),
 
-  getExcludedCategories: async (): Promise<string[]> => {
-    const response = await apiClient.get<string[]>("/admin/excluded-categories");
-    return response.data;
-  },
+  getExcludedCategories: (): Promise<string[]> =>
+    api.get("/api/admin/excluded-categories"),
 
-  setExcludedCategories: async (categories: string[]): Promise<string[]> => {
-    const response = await apiClient.put<string[]>("/admin/excluded-categories", {
-      category_names: categories,
-    });
-    return response.data;
-  },
+  setExcludedCategories: (categories: string[]): Promise<string[]> =>
+    api.put("/api/admin/excluded-categories", { category_names: categories }),
+};
 
-  importExcel: async (file: File): Promise<ImportResult> => {
+export interface DbImportResult {
+  success: boolean;
+  account_name: string;
+  rows_imported: number;
+  error?: string;
+}
+
+export const importApi = {
+  preview: (file: File): Promise<FilePreviewResponse> => {
     const formData = new FormData();
     formData.append("file", file);
-
-    const response = await apiClient.post<ImportResult>("/import/excel", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return response.data;
+    return api.post("/api/import/preview", formData);
   },
 
-  previewImport: async (file: File): Promise<FilePreviewResponse> => {
+  execute: (request: ImportRequest): Promise<ImportExecuteResponse> =>
+    api.post("/api/import/execute", request),
+
+  importDatabase: (file: File): Promise<DbImportResult> => {
     const formData = new FormData();
     formData.append("file", file);
-
-    const response = await apiClient.post<FilePreviewResponse>(
-      "/import/preview",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
-    return response.data;
-  },
-
-  executeImport: async (request: ImportRequest): Promise<ImportExecuteResponse> => {
-    const response = await apiClient.post<ImportExecuteResponse>(
-      "/import/execute",
-      request
-    );
-    return response.data;
+    return api.post("/api/import/database", formData);
   },
 };

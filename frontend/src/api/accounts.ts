@@ -1,14 +1,8 @@
+import { api } from "./client";
 import type { Account } from "../types";
-import apiClient from "./client";
 
 export const accountsApi = {
-  getAll: async (): Promise<Account[]> => {
-    const response = await apiClient.get<Account[]>("/accounts");
-    return response.data;
-  },
+  list: (): Promise<Account[]> => api.get("/api/accounts"),
 
-  getById: async (id: string): Promise<Account> => {
-    const response = await apiClient.get<Account>(`/accounts/${id}`);
-    return response.data;
-  },
+  get: (id: string): Promise<Account> => api.get(`/api/accounts/${id}`),
 };

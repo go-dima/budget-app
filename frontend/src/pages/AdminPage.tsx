@@ -11,10 +11,10 @@ import {
   Typography,
   message,
 } from "antd";
+import { adminApi, importApi } from "../api";
 import { DbInfoCard, ImportWizard } from "../components/pure";
 import { useFilterContext } from "../contexts";
 import { useDbInfo } from "../hooks";
-import { adminApi } from "../api/admin";
 import type { SheetImportConfig } from "../types";
 import "./AdminPage.css";
 
@@ -22,22 +22,27 @@ const { Title } = Typography;
 
 export function AdminPage() {
   const { databases, isLoading: dbLoading, error: dbError, refetch } = useDbInfo();
-  const { allCategories, excludedCategories, refreshCategories } =
+  const { allCategories, excludedCategories, refreshCategories, refreshAccounts } =
     useFilterContext();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handlePreview = async (file: File) => {
-    return adminApi.previewImport(file);
+    return importApi.preview(file);
   };
 
   const handleExecute = async (fileId: string, configs: SheetImportConfig[]) => {
-    const result = await adminApi.executeImport({ file_id: fileId, sheets: configs });
+    const result = await importApi.execute({ file_id: fileId, sheets: configs });
     return result;
+  };
+
+  const handleImportDatabase = async (file: File) => {
+    return importApi.importDatabase(file);
   };
 
   const handleComplete = async () => {
     await refetch();
     await refreshCategories();
+    await refreshAccounts(true); // Update date range after import
   };
 
   const handleExcludedChange = async (checkedValues: string[]) => {
@@ -73,6 +78,7 @@ export function AdminPage() {
           <ImportWizard
             onPreview={handlePreview}
             onExecute={handleExecute}
+            onImportDatabase={handleImportDatabase}
             onComplete={handleComplete}
           />
         </Col>

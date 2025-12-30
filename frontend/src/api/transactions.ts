@@ -1,31 +1,24 @@
-import type { GlobalFilters, Transaction } from "../types";
-import apiClient from "./client";
-
-function buildFilterParams(filters?: Partial<GlobalFilters>): URLSearchParams {
-  const params = new URLSearchParams();
-
-  if (filters?.accountIds?.length) {
-    params.set("account_ids", filters.accountIds.join(","));
-  }
-  if (filters?.categoryNames?.length) {
-    params.set("categories", filters.categoryNames.join(","));
-  }
-  if (filters?.dateRange?.from) {
-    params.set("date_from", filters.dateRange.from.toString());
-  }
-  if (filters?.dateRange?.to) {
-    params.set("date_to", filters.dateRange.to.toString());
-  }
-
-  return params;
-}
+import { api } from "./client";
+import type { Transaction, GlobalFilters } from "../types";
 
 export const transactionsApi = {
-  getAll: async (filters?: Partial<GlobalFilters>): Promise<Transaction[]> => {
-    const params = buildFilterParams(filters);
-    const response = await apiClient.get<Transaction[]>("/transactions", {
-      params,
-    });
-    return response.data;
+  list: (filters?: GlobalFilters): Promise<Transaction[]> => {
+    const params = new URLSearchParams();
+
+    if (filters?.accountIds?.length) {
+      params.set("account_ids", filters.accountIds.join(","));
+    }
+    if (filters?.categoryNames?.length) {
+      params.set("categories", filters.categoryNames.join(","));
+    }
+    if (filters?.dateRange?.from != null) {
+      params.set("date_from", String(filters.dateRange.from));
+    }
+    if (filters?.dateRange?.to != null) {
+      params.set("date_to", String(filters.dateRange.to));
+    }
+
+    const query = params.toString();
+    return api.get(`/api/transactions${query ? `?${query}` : ""}`);
   },
 };
