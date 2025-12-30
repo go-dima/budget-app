@@ -1,0 +1,22 @@
+.filter-sidebar {
+  height: 100%;
+}
+
+.filter-section {
+  margin-bottom: 16px;
+}
+
+.filter-section .label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.date-pickers {
+  width: 100%;
+}
+
+.category-list {
+  max-height: 300px;
+  overflow-y: auto;
+}

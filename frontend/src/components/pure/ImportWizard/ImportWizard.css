@@ -1,0 +1,52 @@
+.import-wizard {
+  max-width: 900px;
+}
+
+.import-wizard .ant-steps {
+  margin-bottom: 24px;
+}
+
+.wizard-content {
+  min-height: 300px;
+  margin: 24px 0;
+}
+
+.wizard-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.file-uploader {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.file-uploader .ant-upload-drag {
+  padding: 40px;
+}
+
+.sheet-selector .ant-table {
+  margin-top: 16px;
+}
+
+.header-mapper .ant-collapse {
+  margin-top: 16px;
+}
+
+.header-mapper .ant-collapse-header {
+  align-items: center !important;
+}
+
+.import-mode-selector .ant-table {
+  margin-top: 16px;
+}
+
+.import-progress .ant-result {
+  padding: 24px 0;
+}
+
+.import-progress .ant-card {
+  margin-top: 16px;
+}

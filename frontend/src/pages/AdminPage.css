@@ -1,0 +1,23 @@
+.admin-page {
+  max-width: 1400px;
+}
+
+.db-list-card {
+  min-height: 300px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.excluded-categories {
+  margin-top: 24px;
+}
+
+.excluded-categories .hint {
+  color: #666;
+  margin-bottom: 16px;
+}

@@ -1,0 +1,9 @@
+.transaction-table .income {
+  color: #3f8600;
+  font-weight: 500;
+}
+
+.transaction-table .expense {
+  color: #cf1322;
+  font-weight: 500;
+}

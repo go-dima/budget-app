@@ -1,0 +1,19 @@
+.report-table .income {
+  color: #3f8600;
+  font-weight: 500;
+}
+
+.report-table .expense {
+  color: #cf1322;
+  font-weight: 500;
+}
+
+.report-table .positive {
+  color: #3f8600;
+  font-weight: 600;
+}
+
+.report-table .negative {
+  color: #cf1322;
+  font-weight: 600;
+}

@@ -1,0 +1,54 @@
+.summary-card {
+  height: 100%;
+}
+
+.summary-card.overall {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.summary-card.overall .ant-card-head-title {
+  color: white;
+}
+
+.summary-card.overall .ant-statistic-title {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.summary-card.overall .ant-statistic-content {
+  color: white !important;
+}
+
+.summary-card.overall .ant-statistic-content-value {
+  color: white !important;
+}
+
+.card-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.summary-card.overall .card-footer {
+  border-top-color: rgba(255, 255, 255, 0.2);
+}
+
+.footer-item {
+  font-size: 12px;
+}
+
+.footer-item .label {
+  color: #666;
+  margin-right: 8px;
+}
+
+.summary-card.overall .footer-item .label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.footer-item .value {
+  font-weight: 500;
+}
+
+.summary-card.overall .footer-item .value {
+  color: white;
+}
