@@ -1,0 +1,1 @@
+ALTER TABLE `categories` ADD `excluded_by_default` integer DEFAULT 0 NOT NULL;

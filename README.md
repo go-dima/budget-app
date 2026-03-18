@@ -1,203 +1,191 @@
 # Budget Viewer
 
-A budget viewer application for viewing and analyzing bank transaction data from Excel files or existing SQLite databases.
+A personal finance tracker for importing Israeli bank transaction data from Excel files and analyzing spending patterns. Single-user, runs locally or on a Raspberry Pi.
 
-## Features
+## Stack
 
-- Import bank transactions from Excel files (Hebrew format)
-- Import existing SQLite database files directly
-- View overall and per-account financial summaries
-- Generate reports grouped by month, category, or year
-- Filter transactions by account, category, and date range
-- Manage default excluded categories
-- All data stays on your local machine
-
-## Architecture
-
-The application uses a client-server architecture:
-
-- **Backend**: Node.js/Express with better-sqlite3 for native SQLite operations
-- **Frontend**: React SPA that communicates with the backend via REST API
-- **Storage**: SQLite database files stored in the `data/` folder
-
-## Tech Stack
-
-### Backend
-- **Runtime**: Node.js 20+
-- **Framework**: Express.js
-- **Database**: better-sqlite3 (native SQLite bindings)
-- **Excel Parsing**: SheetJS (xlsx)
-- **Language**: TypeScript
-
-### Frontend
-- **Framework**: React 19 with TypeScript
-- **Build Tool**: Vite
-- **UI Library**: Ant Design 6
+- **Frontend**: React 19 + TypeScript + Ant Design 6 (Vite)
+- **Backend**: Express + TypeScript
+- **Database**: SQLite via Drizzle ORM (single `data/budget.db`)
 - **Testing**: Vitest
-- **Component Docs**: Storybook
+- **Components**: Storybook 10
+
+---
+
+## Prerequisites
+
+- Node.js 20+
+- npm 10+
+
+---
+
+## Local Development
+
+```bash
+# Install dependencies
+npm install
+
+# Generate DB migration (first time only)
+npm run db:generate
+
+# Start frontend (port 5173) + backend (port 3001) concurrently
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). API calls are proxied to `localhost:3001`.
+
+---
+
+## Tests
+
+```bash
+# Run all service tests (Vitest, no browser needed)
+npm test
+
+# Watch mode
+npm run test:watch
+```
+
+---
+
+## Storybook
+
+```bash
+npm run storybook
+# Opens at http://localhost:6006
+```
+
+---
+
+## Production Build
+
+```bash
+# Build frontend (Vite → dist/public) + backend (tsc → dist/server)
+npm run build
+
+# Run the production server (serves API + static frontend on port 3001)
+npm start
+```
+
+Open [http://localhost:3001](http://localhost:3001).
+
+---
+
+## Docker
+
+### Build and run the image directly
+
+```bash
+# Build
+docker build -t budget-app .
+
+# Run (mounts ./data for DB persistence)
+docker run -p 3000:3001 -v "$(pwd)/data:/app/data" budget-app
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+### Docker Compose (recommended for Raspberry Pi / always-on)
+
+```bash
+# Build and start
+docker-compose up --build -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+The `./data` folder is volume-mounted — `budget.db` persists across container rebuilds and restarts.
+
+Access via `http://<host-ip>:3000` from any device on the same network.
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3001` | Server port |
+| `DATABASE_PATH` | `./data/budget.db` | Path to SQLite file |
+
+---
+
+## Database Migrations
+
+Migrations live in `src/db/migrations/` and run automatically on server startup.
+
+To generate a new migration after changing `src/db/schema.ts`:
+
+```bash
+npm run db:generate
+```
+
+---
 
 ## Project Structure
 
 ```
-budget-app/
-├── backend/               # TypeScript/Express backend
-│   ├── src/
-│   │   ├── db/            # Database layer
-│   │   │   ├── SqliteManager.ts
-│   │   │   └── repositories/
-│   │   ├── services/      # Business logic
-│   │   │   ├── AccountService.ts
-│   │   │   ├── ReportService.ts
-│   │   │   ├── AdminService.ts
-│   │   │   └── ImportService.ts
-│   │   ├── routes/        # API routes
-│   │   ├── utils/         # Utilities (Excel parser)
-│   │   └── types/         # TypeScript types
-│   └── Dockerfile
-├── frontend/              # React frontend
-│   ├── src/
-│   │   ├── api/           # API client
-│   │   ├── components/    # UI components
-│   │   ├── contexts/      # React contexts
-│   │   ├── hooks/         # Custom hooks
-│   │   ├── pages/         # Page components
-│   │   └── types/         # TypeScript types
-│   └── Dockerfile
-├── backend-python/        # Legacy Python backend (reference)
-├── data/                  # SQLite database files
-└── docker-compose.yml
+src/
+├── shared/           # API types — imported by both client and server
+│   └── types.ts
+├── client/           # React frontend (Vite root)
+│   ├── api/          # Typed fetch wrappers
+│   ├── components/   # Reusable UI components (each has a .stories.tsx)
+│   ├── contexts/     # FilterContext — global filter state synced to URL
+│   ├── hooks/        # Data hooks (useAccounts, useTransactions, etc.)
+│   └── pages/        # Full page compositions
+├── server/           # Express backend
+│   ├── routes/       # Thin route handlers
+│   ├── services/     # Business logic + DB access (each has a .test.ts)
+│   └── utils/        # Excel parser
+└── db/
+    ├── schema.ts     # Drizzle table definitions (source of truth)
+    ├── index.ts      # DB connection (WAL mode, FK on, auto-migrate)
+    └── migrations/   # Generated SQL migrations
 ```
 
-## Quick Start
+---
 
-### Using Docker (Recommended)
+## Excel Import Format
 
-```bash
-# Build and start the application
-docker-compose up --build
+Each sheet in the uploaded file becomes one account. Hebrew column headers expected:
 
-# Access the app at http://localhost:3000
-# API available at http://localhost:8000
-```
+| Hebrew | Field |
+|--------|-------|
+| תאריך | Date |
+| תיאור | Description |
+| אמצעי תשלום | Payment method |
+| קטגוריה | Category |
+| פירוט | Details |
+| אסמכתא | Reference |
+| חובה | Expense amount |
+| זכות | Income amount |
+| יתרה | Running balance |
 
-### Manual Development Setup
+Duplicate detection: transactions with the same `date + amount + description + reference` in the same account are skipped on re-import.
 
-**Backend:**
-```bash
-cd backend
-npm install
-npm run dev     # Development with hot reload
-npm run build   # Build for production
-npm start       # Run production build
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev     # Development server at http://localhost:5173
-npm run build   # Build for production
-npm run test    # Run tests
-npm run storybook  # Component documentation
-```
-
-## Usage
-
-1. **Start the Application**: Run `docker-compose up` or start both backend and frontend manually
-2. **Import Data**: Go to the Admin page to import data:
-   - **Excel files**: Upload `.xlsx` or `.xls` files - each sheet becomes a separate account
-   - **Database files**: Upload existing `.db` files directly
-3. **View Reports**: Use the Overview and Report pages to analyze your data
-4. **Filter Data**: Use the sidebar filters to narrow down transactions
+---
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/accounts` | List all accounts |
-| GET | `/api/accounts/:id` | Get account details |
-| GET | `/api/transactions` | List transactions (with filters) |
-| GET | `/api/reports/overview` | Get financial overview |
-| GET | `/api/reports/aggregated` | Get aggregated report |
-| GET | `/api/admin/databases` | List loaded databases |
-| DELETE | `/api/admin/databases/:id` | Delete a database |
-| GET | `/api/admin/categories` | Get all categories |
-| GET | `/api/admin/excluded-categories` | Get excluded categories |
-| PUT | `/api/admin/excluded-categories` | Set excluded categories |
-| POST | `/api/import/preview` | Preview Excel file |
-| POST | `/api/import/execute` | Execute Excel import |
-| POST | `/api/import/database` | Import SQLite database |
+| GET | `/api/accounts/summary` | Per-account summaries (balance, income, expenses) |
+| GET | `/api/transactions` | Paginated, filtered transaction list |
+| GET | `/api/categories` | All categories |
+| GET | `/api/reports/monthly-trend` | Income vs expenses per month |
+| GET | `/api/reports/top-categories` | Top expense categories |
+| GET | `/api/reports/by-month` | Monthly report table |
+| GET | `/api/reports/by-year` | Yearly report table |
+| GET | `/api/reports/by-category` | Category report table |
+| GET | `/api/reports/month-detail` | Per-category breakdown for a month |
+| GET | `/api/reports/year-detail` | Monthly breakdown for a year |
+| GET | `/api/import/status` | Current DB state (account counts, latest dates) |
+| POST | `/api/import/preview` | Parse Excel file, return preview (multipart `file`) |
+| POST | `/api/import/execute` | Execute import (`{ fileId, filename }`) |
+| DELETE | `/api/import/reset` | Clear all data |
 
-## Data Storage
-
-### Database Files
-
-The application stores data in SQLite database files in the `data/` folder:
-
-- `accounts.db` - Account metadata and settings
-- `settings.db` - Application settings (excluded categories)
-- `{account_name}.db` - Transaction data per account
-
-### Docker Volume
-
-When running with Docker, the `./data` folder is mounted into the container, ensuring data persists between restarts.
-
-## Excel File Format
-
-The application expects Excel files with Hebrew column headers:
-
-| Column | Hebrew | Description |
-|--------|--------|-------------|
-| Date | תאריך | Transaction date |
-| Description | תיאור | Transaction description |
-| Payment Method | אמצעי תשלום | Payment method |
-| Category | קטגוריה | Transaction category |
-| Details | פירוט | Additional details |
-| Reference | אסמכתא | Reference number |
-| Expense | חובה | Expense amount |
-| Income | זכות | Income amount |
-| Balance | יתרה | Running balance |
-
-Each sheet in the Excel file represents a different account.
-
-## Environment Variables
-
-### Backend
-- `PORT` - Server port (default: 8000)
-- `BUDGET_DB_PATH` - Path to data folder (default: `../data`)
-- `BUDGET_CORS_ORIGINS` - Allowed CORS origins (comma-separated or JSON array)
-
-### Frontend
-- `VITE_API_URL` - Backend API URL (default: `http://localhost:8000`)
-
-## Development
-
-### Code Quality
-
-The project uses pre-commit hooks:
-
-```bash
-# Install pre-commit hooks
-pre-commit install
-
-# Run hooks manually
-pre-commit run --all-files
-```
-
-### Testing
-
-```bash
-cd frontend
-npm run test
-```
-
-### Storybook
-
-```bash
-cd frontend
-npm run storybook
-```
-
-## License
-
-Private project.
+All data endpoints accept filter query params: `accountIds`, `categoryIds`, `startDate`, `endDate`, `type`, `excludeCategories`.

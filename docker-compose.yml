@@ -1,23 +1,10 @@
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+  budget-app:
+    build: .
     ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    environment:
-      - VITE_API_URL=http://localhost:8000
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+      - "3000:3001"
     volumes:
       - ./data:/app/data
     environment:
-      - BUDGET_DB_PATH=/app/data
-      - BUDGET_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      - DATABASE_PATH=/app/data/budget.db
+    restart: unless-stopped
