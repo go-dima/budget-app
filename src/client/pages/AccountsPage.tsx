@@ -1,5 +1,6 @@
 import { Button, Card, Col, Row, Statistic, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import { txnsByCategoryUrl } from '../utils/navigation.js';
 import { useAccounts } from '../hooks/useAccounts.js';
 import { useMonthlyTrend, useTopCategories } from '../hooks/useReports.js';
 import { AccountCard } from '../components/AccountCard/AccountCard.js';
@@ -74,7 +75,7 @@ export function AccountsPage() {
       <Card>
         <CategoryBreakdownChart
           data={topCategories}
-          onCategoryClick={id => navigate(`/transactions?categoryIds=${id}`)}
+          onCategoryClick={id => navigate(txnsByCategoryUrl(id))}
         />
       </Card>
     </div>

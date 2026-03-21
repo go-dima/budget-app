@@ -33,6 +33,12 @@ export function AccountCard({ account, onClick }: AccountCardProps) {
           </div>
         </div>
         <Statistic title="Transactions" value={account.transactionCount} />
+        {account.latestDate && (
+          <div>
+            <span style={{ color: '#8c8c8c', fontSize: 12 }}>Last transaction</span>
+            <div style={{ fontSize: 13 }}>{account.latestDate}</div>
+          </div>
+        )}
       </div>
     </Card>
   );

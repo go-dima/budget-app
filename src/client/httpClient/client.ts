@@ -89,20 +89,29 @@ export const databasesApi = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename }),
   }),
+  rename: (filename: string, name: string) =>
+    request<DbEntry>(`/api/databases/${encodeURIComponent(filename)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    }),
+  delete: (filename: string) =>
+    request<{ success: boolean }>(`/api/databases/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
 };
 
 export const importApi = {
-  getStatus: () => request<ImportStatusResponse>('/api/import/status'),
+  getStatus: (filename?: string) =>
+    request<ImportStatusResponse>(filename ? `/api/import/status?filename=${encodeURIComponent(filename)}` : '/api/import/status'),
   preview: (file: File) => {
     const form = new FormData();
     form.append('file', file);
     return request<ImportPreviewResponse>('/api/import/preview', { method: 'POST', body: form });
   },
-  execute: (fileId: string, filename: string, sheetNameOverrides?: Record<string, string>) =>
+  execute: (fileId: string, filename: string, sheetNameOverrides?: Record<string, string>, selectedSheets?: string[]) =>
     request<ImportExecuteResponse>('/api/import/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId, filename, sheetNameOverrides }),
+      body: JSON.stringify({ fileId, filename, sheetNameOverrides, selectedSheets }),
     }),
   reset: () => request<{ success: boolean }>('/api/import/reset', { method: 'DELETE' }),
 };

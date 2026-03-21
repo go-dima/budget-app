@@ -41,8 +41,8 @@ function parseFromSearch(params: URLSearchParams): TransactionFilters {
     accountIds: [],
     categoryIds: [],
     excludeCategories: [],
-    startDate: params.get('startDate') ?? undefined,
-    endDate: params.get('endDate') ?? undefined,
+    startDate: undefined,
+    endDate: undefined,
     type: (params.get('type') as TransactionFilters['type']) ?? 'all',
     search: params.get('search') ?? undefined,
     sortBy: (params.get('sortBy') as TransactionFilters['sortBy']) ?? 'date',
@@ -125,8 +125,6 @@ export function FilterProvider({ children }: { children: ReactNode }) {
   // omitted — they hold DB-specific IDs that become stale after a reset/re-import)
   useEffect(() => {
     const p = new URLSearchParams();
-    if (filters.startDate) p.set('startDate', filters.startDate);
-    if (filters.endDate) p.set('endDate', filters.endDate);
     if (filters.type && filters.type !== 'all') p.set('type', filters.type);
     if (filters.search) p.set('search', filters.search);
     if (filters.sortBy && filters.sortBy !== 'date') p.set('sortBy', filters.sortBy);

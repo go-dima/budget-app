@@ -91,7 +91,7 @@ export class ImportService {
     return { fileId, sheets };
   }
 
-  executeImport(fileId: string, filename: string, sheetNameOverrides: Record<string, string> = {}): ImportExecuteResponse {
+  executeImport(fileId: string, filename: string, sheetNameOverrides: Record<string, string> = {}, selectedSheets?: string[]): ImportExecuteResponse {
     const setting = this.db.select().from(settings).where(eq(settings.key, `tmp:${fileId}`)).get();
 
     if (!setting || !existsSync(setting.value)) {
@@ -106,6 +106,7 @@ export class ImportService {
     let totalSkipped = 0;
 
     for (const sheetName of workbook.SheetNames) {
+      if (selectedSheets && selectedSheets.length > 0 && !selectedSheets.includes(sheetName)) continue;
       const sheet = workbook.Sheets[sheetName];
       if (!sheet) continue;
 

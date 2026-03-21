@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Card, Col, Row, Statistic, Typography } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTransactions } from '../hooks/useTransactions.js';
 import { useFilters } from '../contexts/FilterContext.js';
 import { TransactionTable } from '../components/TransactionTable/TransactionTable.js';
@@ -10,17 +11,39 @@ const { Title } = Typography;
 
 export function TransactionsPage() {
   const navigate = useNavigate();
-  const { data, isLoading } = useTransactions();
-  const { filters, setSearch, setSortBy, setSortOrder, setPage } = useFilters();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { filters, setSearch, setSortBy, setSortOrder, setPage, allCategories } = useFilters();
 
-  const isEmpty = !isLoading && data.total === 0 && !filters.search;
+  // Read URL category param once on mount into local state, then clear the URL.
+  // Navigation from Reports/Accounts works, but refresh returns to unfiltered.
+  const [pageCategoryIds, setPageCategoryIds] = useState<string[]>(() => {
+    const ids = searchParams.get('categoryIds')?.split(',').filter(Boolean);
+    return ids?.length ? ids : [];
+  });
+
+  useEffect(() => {
+    if (searchParams.get('categoryIds')) {
+      setSearchParams({}, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Clear excludeCategories when page-local category filter is active so
+  // explicitly-selected categories always show regardless of default exclusions.
+  const overrides: Partial<TransactionFilters> | undefined = pageCategoryIds.length
+    ? { categoryIds: pageCategoryIds, excludeCategories: [] }
+    : undefined;
+
+  const { data, isLoading } = useTransactions(overrides);
+
+  const isEmpty = !isLoading && data.total === 0 && !filters.search && pageCategoryIds.length === 0;
 
   if (isEmpty) {
     return (
       <div style={{ textAlign: 'center', padding: 48 }}>
         <Title level={3}>No data yet.</Title>
         <Typography.Text>
-          <a onClick={() => navigate('/import')}>Import transactions</a> to get started.
+          <a onClick={() => navigate('/settings/import')}>Import transactions</a> to get started.
         </Typography.Text>
       </div>
     );
@@ -52,14 +75,15 @@ export function TransactionsPage() {
         page={filters.page ?? 1}
         pageSize={filters.pageSize ?? 50}
         isLoading={isLoading}
+        allCategories={allCategories}
+        pageCategoryIds={pageCategoryIds}
+        onPageCategoryChange={setPageCategoryIds}
         onSearch={setSearch}
         onSort={(sortBy, sortOrder) => {
           setSortBy(sortBy as TransactionFilters['sortBy']);
           setSortOrder(sortOrder);
         }}
-        onPageChange={(page) => {
-          setPage(page);
-        }}
+        onPageChange={page => setPage(page)}
       />
     </div>
   );

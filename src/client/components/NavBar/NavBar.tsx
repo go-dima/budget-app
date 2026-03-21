@@ -1,17 +1,18 @@
-import { Layout, Menu } from 'antd';
+import { Button, Layout, Menu } from 'antd';
+import { SettingOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const NAV_ITEMS = [
   { key: '/', label: 'Accounts' },
   { key: '/transactions', label: 'Transactions' },
   { key: '/reports', label: 'Reports' },
-  { key: '/import', label: 'Import' },
-  { key: '/config', label: 'Config' },
 ];
 
 export function NavBar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const isSettings = location.pathname.startsWith('/settings');
+
   return (
     <Layout.Header style={{ display: 'flex', alignItems: 'center', padding: '0 24px', background: '#001529' }}>
       <div
@@ -28,6 +29,14 @@ export function NavBar() {
         onClick={({ key }) => navigate(key)}
         style={{ flex: 1, minWidth: 0 }}
       />
+      <Button
+        type={isSettings ? 'primary' : 'text'}
+        icon={<SettingOutlined />}
+        onClick={() => navigate('/settings')}
+        style={{ color: isSettings ? undefined : '#fff', marginLeft: 8 }}
+      >
+        Settings
+      </Button>
     </Layout.Header>
   );
 }

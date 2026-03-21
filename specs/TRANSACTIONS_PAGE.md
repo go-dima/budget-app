@@ -10,8 +10,9 @@
 Top to bottom:
 1. **Filter Sidebar** (global, left side — see `specs/APP_LAYOUT.md`)
 2. **Quick Stats** — summary row for the current filtered view
-3. **Search Bar** — free-text search on description
-4. **Transaction Table** — the main content
+3. **Temp category chip** (optional) — shown when navigated from Reports/Accounts with a category filter
+4. **Filter row** — in-page category multi-select + description search bar
+5. **Transaction Table** — the main content
 
 ---
 
@@ -30,13 +31,35 @@ Updates immediately as filters or search change.
 
 ---
 
-## Search Bar
+## Temp Category Filter (URL-based)
 
-- Free-text input above the table.
-- Searches on `description` field (substring match, case-insensitive).
-- Debounced (300ms) — no submit button needed.
-- Combined with global filters (AND logic — search applies within the filtered set).
-- Clear button to reset search.
+When navigating to `/transactions?categoryIds=<id>` (e.g., from clicking a category row in Reports or Accounts), the page pre-filters by that category:
+
+- A dismissable blue `<Tag>` chip shows "Category: [name]" below the header, on the same row as the filter controls.
+- Closing the chip navigates to `/transactions` (removes the filter).
+- The URL param is cleared immediately on mount (the filter lives in component state, not the URL).
+- This filter is **not** persisted — refreshing the page returns to unfiltered view.
+- When active, `excludeCategories` is set to `[]` (overrides global exclusions) so the selected category is always visible.
+
+---
+
+## In-Page Filter Row
+
+A row with two controls:
+
+1. **Category multi-select** (left): Ant `Select` with `mode="multiple"`.
+   - Options: all categories, sorted by type then alphabetically.
+   - Typing filters available options (but already-selected items are always shown in the tag list).
+   - **Tab**: selects the first matching option and keeps the dropdown open for more typing.
+   - **Enter**: selects current input and dismisses the dropdown (moves focus away).
+   - When any categories are selected: `excludeCategories` is overridden to `[]`.
+
+2. **Description search** (right): Ant `Input.Search`.
+   - Typing filters the **current page data** in-memory (no API call) — case-insensitive substring match on description.
+   - **Enter** or clicking the magnifier icon fires a real API fetch with the search term applied to the global filter.
+   - Clearing the input also clears the API search filter.
+
+Both controls sit on the same row (`display: flex`, `gap: 8`, `flex: 1` on each).
 
 ---
 
@@ -61,12 +84,12 @@ An Ant Design `Table` component with the following columns:
 
 ---
 
-## URL-Based Pre-Filtering
+## URL-Based Pre-Filtering (Navigation)
 
-The page accepts query params to pre-set filters, enabling deep linking from other pages:
-- `/transactions?account={id}` — from clicking an account card on the Accounts page.
-- `/transactions?category={id}` — from clicking a category on the Accounts page.
-- These merge with the global filter context (query params override the context for the specific field).
+Navigating from other pages passes a `?categoryIds=<id>` query param:
+- `/transactions?categoryIds=<id>` — from clicking a category row in Reports or Accounts pages.
+- The param is read once on mount into component state, then cleared from the URL.
+- Shows as a dismissable chip (see Temp Category Filter above).
 
 ---
 
@@ -75,7 +98,7 @@ The page accepts query params to pre-set filters, enabling deep linking from oth
 If no transactions match the current filters + search:
 - Show the table header with no rows.
 - Message below: "No transactions match your filters."
-- If the entire DB is empty: "No data yet. Import transactions to get started." with a link to `/import`.
+- If the entire DB is empty: "No data yet. Import transactions to get started." with a link to `/settings/import`.
 
 ---
 
@@ -97,7 +120,7 @@ If no transactions match the current filters + search:
 
 **Query params**:
 - `accountIds` — comma-separated account IDs
-- `categoryIds` — comma-separated category IDs
+- `categoryIds` — comma-separated category IDs (include filter)
 - `startDate`, `endDate` — ISO date strings
 - `type` — `income` / `expense` / `all`
 - `excludeCategories` — comma-separated category IDs to exclude

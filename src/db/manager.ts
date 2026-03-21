@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'fs';
+import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, statSync, unlinkSync, renameSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { openDb } from './index.js';
 import type { DB } from './index.js';
@@ -105,6 +105,56 @@ class DbManager {
     this.switchTo(filename);
     const { name: displayName, createdAt } = parseFilename(filename);
     return { filename, name: displayName, path, isActive: true, createdAt };
+  }
+
+  delete(filename: string): void {
+    const path = join(DATA_DIR, filename);
+    if (resolve(path) === resolve(this._activePath)) {
+      throw new Error('Cannot delete the active database. Switch to another database first.');
+    }
+    for (const suffix of ['', '-shm', '-wal']) {
+      const f = path + suffix;
+      if (existsSync(f)) unlinkSync(f);
+    }
+  }
+
+  rename(filename: string, newDisplayName: string): DbEntry {
+    const oldPath = join(DATA_DIR, filename);
+    // Preserve the date part from the old filename, or use today
+    const oldMatch = filename.match(/_(\d{4}_\d{2}_\d{2})\.db$/);
+    const datePart = oldMatch ? oldMatch[1] : today();
+    const safeName = newDisplayName.trim().replace(/[^a-zA-Z0-9\u0080-\uFFFF]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    const newFilename = safeName ? `${safeName}_${datePart}.db` : `${datePart}.db`;
+    const newPath = join(DATA_DIR, newFilename);
+
+    const wasActive = resolve(oldPath) === resolve(this._activePath);
+    if (wasActive) {
+      try { this._sqlite.close(); } catch {}
+    }
+
+    for (const suffix of ['', '-shm', '-wal']) {
+      const src = oldPath + suffix;
+      const dst = newPath + suffix;
+      if (existsSync(src)) renameSync(src, dst);
+    }
+
+    if (wasActive) {
+      const { db, sqlite } = openDb(newPath);
+      this._db = db;
+      this._sqlite = sqlite;
+      this._activePath = newPath;
+      saveActivePath(newPath);
+    }
+
+    const { name, createdAt } = parseFilename(newFilename);
+    return { filename: newFilename, name, path: newPath, isActive: wasActive, createdAt };
+  }
+
+  /** Open any DB file for read without switching the active DB. Caller must call close(). */
+  openForFilename(filename: string): { db: DB; close: () => void } {
+    const path = join(DATA_DIR, filename);
+    const { db, sqlite } = openDb(path);
+    return { db, close: () => { try { sqlite.close(); } catch {} } };
   }
 
   switchTo(filename: string): void {

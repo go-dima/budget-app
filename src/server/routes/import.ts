@@ -7,10 +7,17 @@ import { ImportService } from '../services/ImportService.js';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.get('/status', (_req, res) => {
+router.get('/status', (req, res) => {
   try {
-    const service = new AccountService(dbManager.getDb());
-    res.json(service.getImportStatus());
+    const filename = req.query.filename as string | undefined;
+    if (filename) {
+      const { db, close } = dbManager.openForFilename(filename);
+      try {
+        res.json(new AccountService(db).getImportStatus());
+      } finally { close(); }
+    } else {
+      res.json(new AccountService(dbManager.getDb()).getImportStatus());
+    }
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
@@ -24,10 +31,10 @@ router.post('/preview', upload.single('file'), (req, res) => {
 
 router.post('/execute', (req, res) => {
   try {
-    const { fileId, filename, sheetNameOverrides } = req.body as { fileId: string; filename?: string; sheetNameOverrides?: Record<string, string> };
+    const { fileId, filename, sheetNameOverrides, selectedSheets } = req.body as { fileId: string; filename?: string; sheetNameOverrides?: Record<string, string>; selectedSheets?: string[] };
     if (!fileId) return res.status(400).json({ error: 'fileId required' });
     const service = new ImportService(dbManager.getDb());
-    res.json(service.executeImport(fileId, filename || 'import.xlsx', sheetNameOverrides ?? {}));
+    res.json(service.executeImport(fileId, filename || 'import.xlsx', sheetNameOverrides ?? {}, selectedSheets));
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 

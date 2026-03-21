@@ -1,13 +1,25 @@
 # Import Page — Spec
 
-**Route**: `/import`
+**Route**: `/settings/import`
 **Purpose**: Upload Excel files to bootstrap the database or add incremental data.
+
+---
+
+## Active Database Badge
+
+At the top of the page, shows the currently active database as a blue tag badge:
+
+```
+🗄 My Budget 2026
+```
+
+This is fetched on mount via `GET /api/databases` — the entry with `isActive: true`.
 
 ---
 
 ## Current DB Status (always visible)
 
-When the page loads, it immediately shows the **current state of the database**. This helps the user decide whether they need to import at all.
+When the page loads, it immediately shows the **current state of the active database**. This helps the user decide whether they need to import at all.
 
 **If the database has data**:
 
@@ -22,7 +34,7 @@ Display a summary table:
 - One row per account showing: account name, transaction count, latest transaction date.
 - A total row at the bottom with the sum of all transactions.
 - A warning banner: "Importing will add new transactions. Duplicates (same date, amount, description, reference) are skipped automatically."
-- An "Override" option: a button or toggle labeled **"Clear all data and re-import"** that wipes the DB before importing. Requires confirmation dialog ("This will delete all 2,081 transactions. Are you sure?").
+- An "Override" option: a button labeled **"Clear all data and re-import"** that wipes the DB before importing. Requires confirmation dialog ("This will delete all 2,081 transactions. Are you sure?").
 
 **If the database is empty**:
 
@@ -121,13 +133,15 @@ Duplicates are skipped silently — counted in the summary but not flagged as er
 | `ImportSummary`  | Post-import results table                         |
 | `AmountDisplay`  | Format amounts in preview sample rows             |
 
+Note: `DbPicker` is **not** on this page. Database management (create, switch, rename, delete) lives on the Databases page (`/settings/databases`).
+
 ---
 
 ## API Endpoints
 
 | Method | Endpoint                  | Description                              |
 |--------|---------------------------|------------------------------------------|
-| GET    | `/api/import/status`      | Returns per-account transaction count and latest date |
+| GET    | `/api/import/status`      | Returns per-account transaction count and latest date. Optional `?filename=` param to query a specific DB without switching. |
 | POST   | `/api/import/preview`     | Parses uploaded file(s), returns preview data |
 | POST   | `/api/import/execute`     | Executes import, returns summary         |
 | DELETE | `/api/import/reset`       | Clears all data (for override flow)      |
@@ -146,4 +160,4 @@ Duplicates are skipped silently — counted in the summary but not flagged as er
 
 ## Filter Sidebar
 
-**Hidden** on this page. Import is a standalone workflow — page content takes the full width.
+**Hidden** on this page (it's a Settings sub-route). Import is a standalone workflow — page content takes the full width.

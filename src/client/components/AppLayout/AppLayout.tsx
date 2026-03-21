@@ -16,17 +16,18 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const {
-    filters, sidebarAccounts, allCategories,
+    filters, sidebarAccounts, allCategories, defaultExcludedIds,
     setAccountIds, setExcludeCategories, setDateRange, setType, resetFilters,
   } = useFilters();
 
-  const isImportPage = location.pathname === '/import' || location.pathname === '/config';
+  const isImportPage = location.pathname.startsWith('/settings');
   const hasActiveFilters = !!(filters.accountIds?.length || filters.excludeCategories?.length || (filters.type && filters.type !== 'all'));
 
   const filterFormProps = {
     filters,
     accounts: sidebarAccounts,
     categories: allCategories,
+    defaultExcludedIds,
     onSetAccountIds: setAccountIds,
     onSetExcludeCategories: setExcludeCategories,
     onSetDateRange: setDateRange,

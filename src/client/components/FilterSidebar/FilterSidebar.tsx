@@ -1,4 +1,5 @@
-import { Button, Checkbox, DatePicker, Drawer, Radio, Space, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { Button, Checkbox, DatePicker, Drawer, Radio, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 import type { Account, Category, TransactionFilters } from '../../../shared/types.js';
 
@@ -9,6 +10,7 @@ interface FilterFormProps {
   filters: TransactionFilters;
   accounts: Account[];
   categories: Category[];
+  defaultExcludedIds: string[];
   onSetAccountIds: (ids: string[]) => void;
   onSetExcludeCategories: (ids: string[]) => void;
   onSetDateRange: (start: string | undefined, end: string | undefined) => void;
@@ -81,7 +83,6 @@ function CheckboxFilterList({
 /**
  * Category checkbox list in exclude mode.
  * Checked = visible (NOT in excludeIds). Unchecked = hidden (IN excludeIds).
- * Default-hidden categories start unchecked.
  */
 function ExcludeCategoryList({
   items,
@@ -120,7 +121,7 @@ function ExcludeCategoryList({
           </Checkbox>
         </div>
       )}
-      <div style={{ maxHeight: 180, overflowY: 'auto', paddingLeft: 4 }}>
+      <div style={{ paddingLeft: 4 }}>
         {items.map(item => (
           <div key={item.id} style={{ marginBottom: 4 }}>
             <Checkbox
@@ -137,42 +138,31 @@ function ExcludeCategoryList({
 }
 
 export function FilterForm({
-  filters, accounts, categories,
+  filters, accounts, categories, defaultExcludedIds,
   onSetAccountIds, onSetExcludeCategories, onSetDateRange, onSetType, onReset,
 }: FilterFormProps) {
+  const [pendingStart, setPendingStart] = useState<string | undefined>(filters.startDate);
+  const [pendingEnd, setPendingEnd] = useState<string | undefined>(filters.endDate);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  useEffect(() => {
+    setPendingStart(filters.startDate);
+    setPendingEnd(filters.endDate);
+  }, [filters.startDate, filters.endDate]);
+
+  const sortedCategories = [...categories].sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'expense' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={16}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
       <div>
         <Text type="secondary" style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>Accounts</Text>
         <CheckboxFilterList
           items={accounts}
           selectedIds={filters.accountIds ?? []}
           onChange={onSetAccountIds}
-        />
-      </div>
-
-      <div>
-        <Text type="secondary" style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>Categories</Text>
-        <ExcludeCategoryList
-          items={categories}
-          excludeIds={filters.excludeCategories ?? []}
-          onChangeExclude={onSetExcludeCategories}
-        />
-      </div>
-
-      <div>
-        <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>Date Range</Text>
-        <RangePicker
-          picker="month"
-          style={{ width: '100%' }}
-          value={[
-            filters.startDate ? dayjs(filters.startDate) : null,
-            filters.endDate ? dayjs(filters.endDate) : null,
-          ]}
-          onChange={dates => onSetDateRange(
-            dates?.[0]?.startOf('month').format('YYYY-MM-DD'),
-            dates?.[1]?.endOf('month').format('YYYY-MM-DD'),
-          )}
         />
       </div>
 
@@ -185,8 +175,96 @@ export function FilterForm({
         </Radio.Group>
       </div>
 
+      <div>
+        <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>Date Range</Text>
+        <RangePicker
+          picker="month"
+          style={{ width: '100%' }}
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          value={[
+            pendingStart ? dayjs(pendingStart) : null,
+            pendingEnd ? dayjs(pendingEnd) : null,
+          ]}
+          onChange={dates => {
+            setPendingStart(dates?.[0]?.startOf('month').format('YYYY-MM-DD'));
+            setPendingEnd(dates?.[1]?.endOf('month').format('YYYY-MM-DD'));
+          }}
+          renderExtraFooter={() => (
+            <div style={{ padding: '8px 4px' }}>
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => {
+                  onSetDateRange(pendingStart, pendingEnd);
+                  setPickerOpen(false);
+                }}
+              >
+                Apply
+              </Button>
+            </div>
+          )}
+        />
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <Button
+            size="small"
+            onClick={() => {
+              setPendingStart(undefined);
+              setPendingEnd(undefined);
+              onSetDateRange(undefined, undefined);
+            }}
+          >
+            Full time
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              const y = dayjs().subtract(1, 'year').year();
+              const start = dayjs().year(y).startOf('year').format('YYYY-MM-DD');
+              const end = dayjs().year(y).endOf('year').format('YYYY-MM-DD');
+              setPendingStart(start);
+              setPendingEnd(end);
+              onSetDateRange(start, end);
+            }}
+          >
+            Last year
+          </Button>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>Categories</Text>
+        <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+          <Tag
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => onSetExcludeCategories([])}
+          >
+            All
+          </Tag>
+          <Tag
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => onSetExcludeCategories(sortedCategories.map(c => c.id))}
+          >
+            None
+          </Tag>
+          <Tag
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            onClick={() => onSetExcludeCategories(defaultExcludedIds)}
+          >
+            Preset
+          </Tag>
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <ExcludeCategoryList
+            items={sortedCategories}
+            excludeIds={filters.excludeCategories ?? []}
+            onChangeExclude={onSetExcludeCategories}
+          />
+        </div>
+      </div>
+
       <Button block onClick={onReset}>Reset Filters</Button>
-    </Space>
+    </div>
   );
 }
 
@@ -194,7 +272,14 @@ export function FilterSidebar(props: FilterSidebarProps) {
   const { drawerOpen, onDrawerClose, ...formProps } = props;
 
   return (
-    <Drawer title="Filters" open={drawerOpen} onClose={onDrawerClose} placement="left" width={300}>
+    <Drawer
+      title="Filters"
+      open={drawerOpen}
+      onClose={onDrawerClose}
+      placement="left"
+      size="default"
+      styles={{ body: { display: 'flex', flexDirection: 'column', padding: 16, overflow: 'hidden' } }}
+    >
       <FilterForm {...formProps} />
     </Drawer>
   );

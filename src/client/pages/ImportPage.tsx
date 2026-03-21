@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { message, Typography, Upload } from 'antd';
-import { InboxOutlined } from '@ant-design/icons';
+import { message, Tag, Typography, Upload } from 'antd';
+import { DatabaseOutlined, InboxOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { importApi } from '../httpClient/client.js';
-import { DbPicker } from '../components/DbPicker/DbPicker.js';
+import { databasesApi, importApi } from '../httpClient/client.js';
 import { DbStatusTable } from '../components/DbStatusTable/DbStatusTable.js';
 import { ImportPreview } from '../components/ImportPreview/ImportPreview.js';
 import { ImportSummary } from '../components/ImportSummary/ImportSummary.js';
 import { useFilters } from '../contexts/FilterContext.js';
-import type { ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse } from '../../shared/types.js';
+import type { DbEntry, ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse } from '../../shared/types.js';
 
 const { Title } = Typography;
 const { Dragger } = Upload;
@@ -20,6 +19,7 @@ export function ImportPage() {
   const { refreshAll } = useFilters();
   const [step, setStep] = useState<Step>('status');
   const [status, setStatus] = useState<ImportStatusResponse | null>(null);
+  const [activeDb, setActiveDb] = useState<DbEntry | null>(null);
   const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
   const [result, setResult] = useState<ImportExecuteResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -28,6 +28,7 @@ export function ImportPage() {
 
   const loadStatus = useCallback(() => {
     importApi.getStatus().then(setStatus).catch(console.error);
+    databasesApi.list().then(dbs => setActiveDb(dbs.find(d => d.isActive) ?? null)).catch(console.error);
   }, []);
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
@@ -47,12 +48,12 @@ export function ImportPage() {
     return false; // prevent default upload behaviour
   }
 
-  async function handleConfirm(sheetNameOverrides: Record<string, string> = {}) {
+  async function handleConfirm(sheetNameOverrides: Record<string, string> = {}, selectedSheets: string[] = []) {
     if (!preview) return;
     setStep('importing');
     setIsLoading(true);
     try {
-      const data = await importApi.execute(preview.fileId, currentFilename, sheetNameOverrides);
+      const data = await importApi.execute(preview.fileId, currentFilename, sheetNameOverrides, selectedSheets);
       setResult(data);
       setStep('summary');
       loadStatus();
@@ -84,14 +85,6 @@ export function ImportPage() {
     loadStatus();
   }
 
-  function handleDbSwitched() {
-    refreshAll();
-    loadStatus();
-    setStep('status');
-    setPreview(null);
-    setResult(null);
-  }
-
   function handleGoToOverview() {
     refreshAll();
     navigate('/');
@@ -101,7 +94,13 @@ export function ImportPage() {
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
       <Title level={2}>Import Data</Title>
 
-      <DbPicker onSwitched={handleDbSwitched} />
+      {activeDb && (
+        <div style={{ marginBottom: 16 }}>
+          <Tag icon={<DatabaseOutlined />} color="blue" style={{ fontSize: 13, padding: '4px 10px' }}>
+            {activeDb.name}
+          </Tag>
+        </div>
+      )}
 
       {/* DB Status — always visible unless showing summary */}
       {step !== 'summary' && (
@@ -132,7 +131,7 @@ export function ImportPage() {
       {step === 'preview' && preview && (
         <div style={{ marginBottom: 24 }}>
           <Title level={4}>Preview</Title>
-          <ImportPreview preview={preview} onConfirm={overrides => handleConfirm(overrides)} isLoading={isLoading} />
+          <ImportPreview preview={preview} onConfirm={(overrides, sheets) => handleConfirm(overrides, sheets)} isLoading={isLoading} />
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Switch, Tag, Typography, Space, Spin } from 'antd';
+import { Button, Card, Tag, Typography, Space, Spin, Flex } from 'antd';
 import { categoriesApi } from '../httpClient/client.js';
 import { useFilters } from '../contexts/FilterContext.js';
 import type { Category } from '../../shared/types.js';
@@ -41,8 +41,14 @@ export function ConfigPage() {
           Uncheck them in the filter sidebar to temporarily reveal them.
         </Text>
 
-        <Space direction="vertical" style={{ width: '100%' }}>
-          {allCategories.map(cat => (
+        <Flex vertical style={{ width: '100%' }}>
+          {[...allCategories]
+            .sort((a, b) => {
+              if (a.type !== b.type) return a.type === 'expense' ? -1 : 1;
+              if (a.excludedByDefault !== b.excludedByDefault) return a.excludedByDefault ? -1 : 1;
+              return a.name.localeCompare(b.name);
+            })
+            .map(cat => (
             <div key={cat.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
               <Space>
                 <span dir="rtl">{cat.name}</span>
@@ -50,16 +56,24 @@ export function ConfigPage() {
                   {cat.type}
                 </Tag>
               </Space>
-              <Switch
-                checked={cat.excludedByDefault}
-                loading={saving === cat.id}
-                onChange={checked => handleToggle(cat, checked)}
-                checkedChildren="Hidden"
-                unCheckedChildren="Visible"
-              />
+              <Space.Compact size="small">
+                <Button
+                  size="small"
+                  type={!cat.excludedByDefault ? 'primary' : 'default'}
+                  disabled={saving === cat.id}
+                  onClick={() => { if (cat.excludedByDefault) handleToggle(cat, false); }}
+                >Show</Button>
+                <Button
+                  size="small"
+                  type="default"
+                  style={cat.excludedByDefault ? { background: '#8c8c8c', color: '#fff', borderColor: '#8c8c8c' } : {}}
+                  disabled={saving === cat.id}
+                  onClick={() => { if (!cat.excludedByDefault) handleToggle(cat, true); }}
+                >Hide</Button>
+              </Space.Compact>
             </div>
           ))}
-        </Space>
+        </Flex>
       </Card>
     </div>
   );
