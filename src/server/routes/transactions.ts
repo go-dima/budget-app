@@ -30,4 +30,19 @@ router.get('/', (req, res) => {
   }
 });
 
+router.post('/bulk-categorize', (req, res) => {
+  try {
+    const { updates } = req.body as { updates?: unknown };
+    if (!Array.isArray(updates)) return res.status(400).json({ error: 'updates must be an array' });
+    if (!updates.every((u: unknown) => typeof (u as { id: unknown }).id === 'string')) {
+      return res.status(400).json({ error: 'Each update must have a string id' });
+    }
+    const service = new TransactionService(dbManager.getDb());
+    service.bulkSetCategory(updates as { id: string; categoryId: string | null }[]);
+    res.json({ updated: updates.length });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 export default router;

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, unique } from 'drizzle-orm/sqlite-core';
 
 export const accounts = sqliteTable('accounts', {
   id: text('id').primaryKey(),
@@ -46,3 +46,17 @@ export const importLogs = sqliteTable('import_logs', {
   rowCount: integer('row_count').notNull(),
   importedAt: integer('imported_at').notNull(),
 });
+
+export const descriptionCategoryMap = sqliteTable(
+  'description_category_map',
+  {
+    id: text('id').primaryKey(),
+    account: text('account').notNull(),
+    description: text('description').notNull(),
+    preferredCategoryId: text('preferred_category_id').references(() => categories.id),
+    suggestedCategoryIds: text('suggested_category_ids').notNull().default('[]'),
+  },
+  (t) => ({
+    uniq: unique().on(t.account, t.description),
+  })
+);

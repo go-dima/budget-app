@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import type { TransactionFilters, ImportStatusResponse, Category, Account } from '../../shared/types.js';
@@ -17,6 +17,7 @@ interface FilterContextValue {
   setSortBy: (sortBy: TransactionFilters['sortBy']) => void;
   setSortOrder: (order: 'asc' | 'desc') => void;
   setPage: (page: number) => void;
+  setPageSize: (pageSize: number) => void;
   resetFilters: () => void;
   /** Re-fetches everything and resets session filters to DB defaults. Call after import. */
   refreshAll: () => void;
@@ -58,6 +59,8 @@ export function FilterProvider({ children }: { children: ReactNode }) {
   const [defaultExcludedIds, setDefaultExcludedIds] = useState<string[]>([]);
   const [sidebarAccounts, setSidebarAccounts] = useState<Account[]>([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
+  // Tracks the last params string WE wrote, so we can ignore our own URL updates
+  const lastWrittenParamsRef = useRef<string>('');
 
   const refreshCategoriesData = useCallback(() => {
     fetch('/api/categories')
@@ -130,12 +133,47 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     if (filters.sortBy && filters.sortBy !== 'date') p.set('sortBy', filters.sortBy);
     if (filters.sortOrder && filters.sortOrder !== 'desc') p.set('sortOrder', filters.sortOrder);
     if (filters.page && filters.page > 1) p.set('page', String(filters.page));
+    lastWrittenParamsRef.current = p.toString();
     setSearchParams(p, { replace: true });
   }, [filters, setSearchParams]);
+
+  // Sync FROM URL when URL changes externally (e.g. navigation with ?search=).
+  // Skip updates that WE triggered to avoid infinite loops.
+  useEffect(() => {
+    if (searchParams.toString() === lastWrittenParamsRef.current) return;
+    const urlSearch = searchParams.get('search') ?? undefined;
+    if (urlSearch !== filters.search) {
+      setFiltersState(prev => ({ ...prev, search: urlSearch, page: 1 }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]);
 
   const update = useCallback((patch: Partial<TransactionFilters>) => {
     setFiltersState(prev => ({ ...prev, ...patch, page: 1 }));
   }, []);
+
+  // Stable setters — only recreated when `update` changes (which has [] deps, so never).
+  const stableSetters = useMemo(() => ({
+    setAccountIds: (ids: string[]) => update({ accountIds: ids }),
+    setCategoryIds: (ids: string[]) => update({ categoryIds: ids }),
+    setExcludeCategories: (ids: string[]) => update({ excludeCategories: ids }),
+    setDateRange: (start: string | undefined, end: string | undefined) => update({ startDate: start, endDate: end }),
+    setType: (type: TransactionFilters['type']) => update({ type }),
+    setSearch: (search: string) => update({ search }),
+    setSortBy: (sortBy: TransactionFilters['sortBy']) => update({ sortBy }),
+    setSortOrder: (sortOrder: 'asc' | 'desc') => update({ sortOrder }),
+    setPage: (page: number) => setFiltersState(prev => ({ ...prev, page })),
+    setPageSize: (pageSize: number) => setFiltersState(prev => ({ ...prev, pageSize, page: 1 })),
+  }), [update]);
+
+  const resetFilters = useCallback(() => {
+    setFiltersState(prev => ({
+      ...prev,
+      accountIds: [], categoryIds: [], excludeCategories: defaultExcludedIds,
+      type: 'all', page: 1, sortBy: 'date', sortOrder: 'desc', search: undefined,
+    }));
+    refreshAll();
+  }, [defaultExcludedIds, refreshAll]);
 
   const value = useMemo<FilterContextValue>(() => ({
     filters,
@@ -143,25 +181,10 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     sidebarAccounts,
     allCategories,
     refreshCategoriesData,
-    setAccountIds: ids => update({ accountIds: ids }),
-    setCategoryIds: ids => update({ categoryIds: ids }),
-    setExcludeCategories: ids => update({ excludeCategories: ids }),
-    setDateRange: (start, end) => update({ startDate: start, endDate: end }),
-    setType: type => update({ type }),
-    setSearch: search => update({ search }),
-    setSortBy: sortBy => update({ sortBy }),
-    setSortOrder: sortOrder => update({ sortOrder }),
-    setPage: page => setFiltersState(prev => ({ ...prev, page })),
-    resetFilters: () => {
-      setFiltersState(prev => ({
-        ...prev,
-        accountIds: [], categoryIds: [], excludeCategories: defaultExcludedIds,
-        type: 'all', page: 1, sortBy: 'date', sortOrder: 'desc', search: undefined,
-      }));
-      refreshAll();
-    },
     refreshAll,
-  }), [filters, defaultExcludedIds, sidebarAccounts, allCategories, update, refreshAll, refreshCategoriesData]);
+    resetFilters,
+    ...stableSetters,
+  }), [filters, defaultExcludedIds, sidebarAccounts, allCategories, refreshAll, refreshCategoriesData, resetFilters, stableSetters]);
 
   return <FilterContext.Provider value={value}>{children}</FilterContext.Provider>;
 }

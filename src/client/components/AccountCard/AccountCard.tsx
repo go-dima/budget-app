@@ -1,6 +1,7 @@
 import { Card, Statistic } from 'antd';
 import { AmountDisplay } from '../AmountDisplay/AmountDisplay.js';
 import type { AccountSummary } from '../../../shared/types.js';
+import styles from './AccountCard.module.css';
 
 interface AccountCardProps {
   account: AccountSummary;
@@ -15,28 +16,28 @@ export function AccountCard({ account, onClick }: AccountCardProps) {
       title={account.name}
       size="small"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className={styles.body}>
         {account.balance != null && (
           <div>
-            <span style={{ color: '#8c8c8c', fontSize: 12 }}>Balance</span>
+            <span className="stat-label">Balance</span>
             <div><AmountDisplay amount={account.balance} /></div>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div className={styles.statRow}>
           <div>
-            <span style={{ color: '#8c8c8c', fontSize: 12 }}>Income</span>
+            <span className="stat-label">Income</span>
             <div><AmountDisplay amount={account.totalIncome} /></div>
           </div>
           <div>
-            <span style={{ color: '#8c8c8c', fontSize: 12 }}>Expenses</span>
+            <span className="stat-label">Expenses</span>
             <div><AmountDisplay amount={-account.totalExpenses} /></div>
           </div>
         </div>
         <Statistic title="Transactions" value={account.transactionCount} />
         {account.latestDate && (
           <div>
-            <span style={{ color: '#8c8c8c', fontSize: 12 }}>Last transaction</span>
-            <div style={{ fontSize: 13 }}>{account.latestDate}</div>
+            <span className="stat-label">Last transaction</span>
+            <div className="text-body-sm">{account.latestDate}</div>
           </div>
         )}
       </div>

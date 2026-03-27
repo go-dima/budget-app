@@ -15,6 +15,21 @@ export interface Category {
   excludedByDefault: boolean;
 }
 
+export interface CategoryMapping {
+  account: string;
+  description: string;
+  preferredCategoryId: string | null;
+  suggestedCategoryIds: string[];
+  preferredCategory?: Category;
+  suggestedCategories?: Category[];
+}
+
+export interface RecalculateResult {
+  updated: number;
+  conflicts: number;
+  noops: number;
+}
+
 export interface Transaction {
   id: string;
   accountId: string;
@@ -167,6 +182,19 @@ export interface ImportPreviewResponse {
   sheets: ImportPreviewSheet[];
 }
 
+export interface ImportedTransactionReview {
+  id: string;
+  accountName: string;
+  date: string;
+  description: string;
+  amount: number; // agorot
+  categoryId: string | null;
+  categoryName: string | null;
+  autoAssigned: boolean;
+  preferredCategoryId: string | null;   // from mapping (null if no mapping exists)
+  suggestedCategoryIds: string[];       // from mapping (empty if no mapping exists)
+}
+
 export interface ImportExecuteRequest {
   fileId: string;
 }
@@ -184,4 +212,5 @@ export interface ImportExecuteResponse {
   results: ImportSheetResult[];
   totalNew: number;
   totalSkipped: number;
+  transactionsForReview: ImportedTransactionReview[];
 }

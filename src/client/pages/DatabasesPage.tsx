@@ -3,6 +3,7 @@ import { message, Typography } from 'antd';
 import { databasesApi, importApi } from '../httpClient/client.js';
 import { DbPicker } from '../components/DbPicker/DbPicker.js';
 import { DbStatusTable } from '../components/DbStatusTable/DbStatusTable.js';
+import { PageContainer } from '../components/PageContainer/PageContainer.js';
 import { useFilters } from '../contexts/FilterContext.js';
 import type { ImportStatusResponse } from '../../shared/types.js';
 
@@ -72,7 +73,7 @@ export function DatabasesPage() {
   }
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto' }}>
+    <PageContainer maxWidth={700}>
       <Title level={3}>Databases</Title>
       <DbPicker
         onSwitched={handleSwitched}
@@ -88,6 +89,6 @@ export function DatabasesPage() {
         isResetting={isResetting}
         readOnly={!isActiveViewing}
       />
-    </div>
+    </PageContainer>
   );
 }

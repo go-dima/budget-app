@@ -10,10 +10,12 @@ import type {
   ImportPreviewResponse,
   ImportPreviewSheet,
   ImportExecuteResponse,
+  ImportedTransactionReview,
 } from '../../shared/types.js';
 import { parseSheet, getSheetMeta } from '../utils/excelParser.js';
 import { AccountService } from './AccountService.js';
 import { CategoryService } from './CategoryService.js';
+import { CategoryMappingService } from './CategoryMappingService.js';
 import { TransactionService } from './TransactionService.js';
 
 export class ImportService {
@@ -95,7 +97,7 @@ export class ImportService {
     const setting = this.db.select().from(settings).where(eq(settings.key, `tmp:${fileId}`)).get();
 
     if (!setting || !existsSync(setting.value)) {
-      return { success: false, results: [], totalNew: 0, totalSkipped: 0 };
+      return { success: false, results: [], totalNew: 0, totalSkipped: 0, transactionsForReview: [] };
     }
 
     const buffer = readFileSync(setting.value);
@@ -104,6 +106,12 @@ export class ImportService {
     const results: ImportExecuteResponse['results'] = [];
     let totalNew = 0;
     let totalSkipped = 0;
+    const transactionsForReview: ImportedTransactionReview[] = [];
+    const mappingSvc = new CategoryMappingService(this.db);
+
+    // Build category name lookup once per import (not per sheet)
+    const allCategories = this.categorySvc.getAll();
+    const catNameMap = new Map(allCategories.map(c => [c.id, c.name]));
 
     for (const sheetName of workbook.SheetNames) {
       if (selectedSheets && selectedSheets.length > 0 && !selectedSheets.includes(sheetName)) continue;
@@ -144,10 +152,46 @@ export class ImportService {
         const newRows = candidates.filter((_, i) => !dupeFlags[i]);
         const skipped = candidates.length - newRows.length;
 
-        // Insert in batches of 500
-        let inserted = 0;
+        // Insert in batches of 500 and collect IDs
+        const insertedIds: string[] = [];
         for (let i = 0; i < newRows.length; i += 500) {
-          inserted += this.txnSvc.insert(newRows.slice(i, i + 500));
+          const ids = this.txnSvc.insert(newRows.slice(i, i + 500));
+          insertedIds.push(...ids);
+        }
+        const inserted = insertedIds.length;
+
+        // Apply category mappings for rows without a category, collect review rows
+        const mappingUpdates: { id: string; categoryId: string }[] = [];
+        for (let i = 0; i < newRows.length; i++) {
+          const row = newRows[i]!;
+          const rowId = insertedIds[i]!;
+          let resolvedCategoryId = row.categoryId;
+
+          const mapping = mappingSvc.getMappingFor(accountName, row.description);
+          if (resolvedCategoryId === null) {
+            const mappedCatId = mapping?.preferredCategoryId ?? null;
+            if (mappedCatId !== null) {
+              mappingUpdates.push({ id: rowId, categoryId: mappedCatId });
+              resolvedCategoryId = mappedCatId;
+            }
+          }
+
+          transactionsForReview.push({
+            id: rowId,
+            accountName: account.name,
+            date: row.date,
+            description: row.description,
+            amount: row.amount,
+            categoryId: resolvedCategoryId,
+            categoryName: resolvedCategoryId ? (catNameMap.get(resolvedCategoryId) ?? null) : null,
+            autoAssigned: row.categoryId === null && resolvedCategoryId !== null,
+            preferredCategoryId: mapping?.preferredCategoryId ?? null,
+            suggestedCategoryIds: mapping?.suggestedCategoryIds ?? [],
+          });
+        }
+
+        if (mappingUpdates.length > 0) {
+          this.txnSvc.bulkSetCategory(mappingUpdates);
         }
 
         this.db.insert(importLogs).values({
@@ -172,7 +216,7 @@ export class ImportService {
       this.db.delete(settings).where(eq(settings.key, `tmp:${fileId}`)).run();
     } catch {}
 
-    return { success: results.every(r => r.error === null), results, totalNew, totalSkipped };
+    return { success: results.every(r => r.error === null), results, totalNew, totalSkipped, transactionsForReview };
   }
 
   reset(): void {

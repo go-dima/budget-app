@@ -1,0 +1,25 @@
+.layout {
+  min-height: 100%;
+  background: #fff;
+}
+
+.sider {
+  background: #fff;
+  border-right: 1px solid #f0f0f0;
+}
+
+.siderHeader {
+  padding: 16px 16px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu {
+  border-right: 0;
+}
+
+.content {
+  padding: 24px;
+  overflow-y: auto;
+}

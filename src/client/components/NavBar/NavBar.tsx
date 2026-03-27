@@ -1,6 +1,7 @@
 import { Button, Layout, Menu } from 'antd';
 import { SettingOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
+import styles from './NavBar.module.css';
 
 const NAV_ITEMS = [
   { key: '/', label: 'Accounts' },
@@ -14,9 +15,9 @@ export function NavBar() {
   const isSettings = location.pathname.startsWith('/settings');
 
   return (
-    <Layout.Header style={{ display: 'flex', alignItems: 'center', padding: '0 24px', background: '#001529' }}>
+    <Layout.Header className={styles.header}>
       <div
-        style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginRight: 32, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        className={styles.logo}
         onClick={() => navigate('/')}
       >
         Budget Viewer
@@ -33,7 +34,7 @@ export function NavBar() {
         type={isSettings ? 'primary' : 'text'}
         icon={<SettingOutlined />}
         onClick={() => navigate('/settings')}
-        style={{ color: isSettings ? undefined : '#fff', marginLeft: 8 }}
+        className={isSettings ? styles.settingsBtn : styles.settingsBtnLight}
       >
         Settings
       </Button>

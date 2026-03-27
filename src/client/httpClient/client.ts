@@ -3,7 +3,7 @@ import type {
   MonthlyTrendItem, TopCategoryItem,
   MonthlyReportRow, YearlyReportRow, CategoryReportRow, MonthDetailRow,
   ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse,
-  TransactionFilters, DbEntry,
+  TransactionFilters, DbEntry, CategoryMapping, RecalculateResult,
 } from '../../shared/types.js';
 
 export class ApiError extends Error {
@@ -48,6 +48,12 @@ export const accountsApi = {
 export const transactionsApi = {
   list: (filters: TransactionFilters) =>
     request<TransactionsResponse>(`/api/transactions?${toParams(filters)}`),
+  bulkCategorize: (updates: { id: string; categoryId: string | null }[]) =>
+    request<void>('/api/transactions/bulk-categorize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates }),
+    }),
 };
 
 export const categoriesApi = {
@@ -97,6 +103,28 @@ export const databasesApi = {
     }),
   delete: (filename: string) =>
     request<{ success: boolean }>(`/api/databases/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
+};
+
+const enc = encodeURIComponent;
+
+export const categoryMappingApi = {
+  getAll: () => request<CategoryMapping[]>('/api/category-mapping'),
+  recalculate: () => request<RecalculateResult>('/api/category-mapping/recalculate', { method: 'POST' }),
+  setPreferred: (account: string, description: string, categoryId: string) =>
+    request<CategoryMapping>(
+      `/api/category-mapping/${enc(account)}/${enc(description)}/preferred`,
+      { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryId }) }
+    ),
+  removeSuggested: (account: string, description: string, categoryId: string) =>
+    request<CategoryMapping>(
+      `/api/category-mapping/${enc(account)}/${enc(description)}/suggested/${enc(categoryId)}`,
+      { method: 'DELETE' }
+    ),
+  delete: (account: string, description: string) =>
+    request<void>(
+      `/api/category-mapping/${enc(account)}/${enc(description)}`,
+      { method: 'DELETE' }
+    ),
 };
 
 export const importApi = {

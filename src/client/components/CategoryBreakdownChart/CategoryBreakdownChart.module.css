@@ -1,0 +1,24 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.track {
+  background: #f0f0f0;
+  border-radius: 4px;
+  height: 6px;
+}
+
+.fill {
+  background: #ff4d4f;
+  border-radius: 4px;
+  height: 100%;
+  /* width is dynamic — keep inline */
+}

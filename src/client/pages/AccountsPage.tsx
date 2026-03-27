@@ -4,6 +4,7 @@ import { txnsByCategoryUrl } from '../utils/navigation.js';
 import { useAccounts } from '../hooks/useAccounts.js';
 import { useMonthlyTrend, useTopCategories } from '../hooks/useReports.js';
 import { AccountCard } from '../components/AccountCard/AccountCard.js';
+import { EmptyState } from '../components/EmptyState/EmptyState.js';
 import { MonthlyTrendChart } from '../components/MonthlyTrendChart/MonthlyTrendChart.js';
 import { CategoryBreakdownChart } from '../components/CategoryBreakdownChart/CategoryBreakdownChart.js';
 import { AmountDisplay } from '../components/AmountDisplay/AmountDisplay.js';
@@ -18,12 +19,10 @@ export function AccountsPage() {
 
   if (!isLoading && accounts.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: 48 }}>
-        <Title level={3}>No transaction data yet.</Title>
-        <Button type="primary" size="large" onClick={() => navigate('/import')}>
-          Import Data
-        </Button>
-      </div>
+      <EmptyState
+        title="No transaction data yet."
+        action={<Button type="primary" size="large" onClick={() => navigate('/import')}>Import Data</Button>}
+      />
     );
   }
 
@@ -34,7 +33,7 @@ export function AccountsPage() {
   return (
     <div>
       {/* Total Summary */}
-      <Card style={{ marginBottom: 24 }}>
+      <Card className="mb-24">
         <Row gutter={24}>
           <Col xs={12} sm={6}>
             <Statistic title="Total Balance" valueRender={() => <AmountDisplay amount={totalBalance} />} />
@@ -53,7 +52,7 @@ export function AccountsPage() {
 
       {/* Account Cards */}
       <Title level={4}>Accounts</Title>
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      <Row gutter={[16, 16]} className="mb-24">
         {accounts.map(account => (
           <Col xs={24} sm={12} lg={8} key={account.id}>
             <AccountCard
@@ -66,7 +65,7 @@ export function AccountsPage() {
 
       {/* Monthly Trend */}
       <Title level={4}>Monthly Trend</Title>
-      <Card style={{ marginBottom: 24 }}>
+      <Card className="mb-24">
         <MonthlyTrendChart data={trend} />
       </Card>
 

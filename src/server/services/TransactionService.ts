@@ -20,12 +20,12 @@ export interface InsertTransaction {
 export class TransactionService {
   constructor(private db: DB) {}
 
-  insert(rows: InsertTransaction[]): number {
-    if (rows.length === 0) return 0;
+  insert(rows: InsertTransaction[]): string[] {
+    if (rows.length === 0) return [];
     const now = Math.floor(Date.now() / 1000);
     const values = rows.map(r => ({ ...r, id: nanoid(), createdAt: now }));
     this.db.insert(transactions).values(values).run();
-    return rows.length;
+    return values.map(v => v.id);
   }
 
   /** Returns which rows are duplicates (same accountId, date, amount, description, reference) */
@@ -113,6 +113,12 @@ export class TransactionService {
       .all() as Transaction[];
 
     return { transactions: rows, total, totalIncome, totalExpenses };
+  }
+
+  bulkSetCategory(updates: { id: string; categoryId: string | null }[]): void {
+    for (const update of updates) {
+      this.db.update(transactions).set({ categoryId: update.categoryId }).where(eq(transactions.id, update.id)).run();
+    }
   }
 
   deleteByAccountId(accountId: string): void {

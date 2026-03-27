@@ -28,10 +28,10 @@ export function DbStatusTable({ status, onReset, isResetting, readOnly }: DbStat
 
   return (
     <div>
-      <Table dataSource={dataSource} columns={columns} rowKey="accountId" pagination={false} size="small" style={{ marginBottom: 12 }} />
+      <Table dataSource={dataSource} columns={columns} rowKey="accountId" pagination={false} size="small" className="mb-12" />
       {!readOnly && (
         <>
-          <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+          <Text type="secondary" className="mb-8" style={{ display: 'block' }}>
             Importing will add new transactions. Duplicates (same date, amount, description, reference) are skipped automatically.
           </Text>
           <Popconfirm

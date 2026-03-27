@@ -1,12 +1,17 @@
-import { useState } from 'react';
-import { Layout, Button, Badge } from 'antd';
-import { FilterOutlined } from '@ant-design/icons';
+import { useMemo, useState } from 'react';
+import { Layout } from 'antd';
 import { useLocation } from 'react-router-dom';
 import { NavBar } from '../NavBar/NavBar.js';
-import { FilterSidebar, FilterForm } from '../FilterSidebar/FilterSidebar.js';
+import { FilterForm } from '../FilterSidebar/FilterForm.js';
+import { FilterSidebar } from '../FilterSidebar/FilterSidebar.js';
 import { useFilters } from '../../contexts/FilterContext.js';
+import styles from './AppLayout.module.css';
 
 const { Sider, Content } = Layout;
+
+const LAYOUT_STYLE = { minHeight: '100vh' };
+const CONTENT_STYLE_IMPORT = { padding: 24, overflowY: 'auto' as const };
+const CONTENT_STYLE_MAIN = { padding: '24px 24px 24px 16px', overflowY: 'auto' as const };
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -21,9 +26,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   } = useFilters();
 
   const isImportPage = location.pathname.startsWith('/settings');
-  const hasActiveFilters = !!(filters.accountIds?.length || filters.excludeCategories?.length || (filters.type && filters.type !== 'all'));
 
-  const filterFormProps = {
+  const filterFormProps = useMemo(() => ({
     filters,
     accounts: sidebarAccounts,
     categories: allCategories,
@@ -33,10 +37,10 @@ export function AppLayout({ children }: AppLayoutProps) {
     onSetDateRange: setDateRange,
     onSetType: setType,
     onReset: resetFilters,
-  };
+  }), [filters, sidebarAccounts, allCategories, defaultExcludedIds, setAccountIds, setExcludeCategories, setDateRange, setType, resetFilters]);
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={LAYOUT_STYLE}>
       <NavBar />
       <Layout>
         {!isImportPage && (
@@ -44,23 +48,15 @@ export function AppLayout({ children }: AppLayoutProps) {
             {/* Desktop sidebar */}
             <Sider
               width={260}
-              style={{ background: '#fff', padding: 16, borderRight: '1px solid #f0f0f0' }}
-              className="desktop-sider"
+              className={`${styles.sider} desktop-sider`}
             >
               <FilterForm {...filterFormProps} />
             </Sider>
 
-            {/* Mobile filter button */}
-            <div className="mobile-filter-btn" style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 100 }}>
-              <Badge dot={hasActiveFilters}>
-                <Button type="primary" shape="circle" icon={<FilterOutlined />} size="large" onClick={() => setDrawerOpen(true)} />
-              </Badge>
-            </div>
-
-            <FilterSidebar {...filterFormProps} drawerOpen={drawerOpen} onDrawerClose={() => setDrawerOpen(false)} />
+<FilterSidebar {...filterFormProps} drawerOpen={drawerOpen} onDrawerClose={() => setDrawerOpen(false)} />
           </>
         )}
-        <Content style={{ padding: isImportPage ? 24 : '24px 24px 24px 16px', overflowY: 'auto' }}>
+        <Content style={isImportPage ? CONTENT_STYLE_IMPORT : CONTENT_STYLE_MAIN}>
           {children}
         </Content>
       </Layout>

@@ -15,6 +15,7 @@ export const Success: Story = {
       ],
       totalNew: 510,
       totalSkipped: 5,
+      transactionsForReview: [],
     },
     onGoToOverview: () => {},
     onImportMore: () => {},

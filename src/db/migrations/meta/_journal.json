@@ -15,6 +15,20 @@
       "when": 1773774925290,
       "tag": "0001_regular_toxin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774099408156,
+      "tag": "0002_previous_cerebro",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1774200000000,
+      "tag": "0003_preferred_category",
+      "breakpoints": true
     }
   ]
 }

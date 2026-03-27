@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Button, Card, Checkbox, Input, Table, Tag, Typography } from 'antd';
-import { AmountDisplay } from '../AmountDisplay/AmountDisplay.js';
 import type { ImportPreviewResponse } from '../../../shared/types.js';
+import { amountCol, dateCol, descriptionColSimple } from '../tableColumns.js';
 
 const { Text } = Typography;
 
@@ -44,6 +44,14 @@ export function ImportPreview({ preview, onConfirm, isLoading }: ImportPreviewPr
 
   const selectedCount = selectedSheets.size;
 
+  type SampleRow = { date: string; description: string; category: string; amount: number };
+  const sampleColumns = [
+    dateCol<SampleRow>(),
+    descriptionColSimple<SampleRow>(),
+    { title: 'Category', dataIndex: 'category', key: 'category', render: (v: string) => <span dir="rtl">{v}</span> },
+    amountCol<SampleRow>(),
+  ];
+
   return (
     <div>
       {preview.sheets.map(sheet => {
@@ -71,7 +79,8 @@ export function ImportPreview({ preview, onConfirm, isLoading }: ImportPreviewPr
               </div>
             }
             size="small"
-            style={{ marginBottom: 12, opacity: isValid && !isSelected ? 0.5 : 1 }}
+            className="mb-12"
+            style={{ opacity: isValid && !isSelected ? 0.5 : 1 }}
           >
             {sheet.error ? (
               <Alert type="error" message={sheet.error} />
@@ -93,12 +102,7 @@ export function ImportPreview({ preview, onConfirm, isLoading }: ImportPreviewPr
                   size="small"
                   pagination={false}
                   style={{ marginTop: 8 }}
-                  columns={[
-                    { title: 'Date', dataIndex: 'date', key: 'date', width: 110 },
-                    { title: 'Description', dataIndex: 'description', key: 'description', render: v => <span dir="rtl">{v}</span> },
-                    { title: 'Category', dataIndex: 'category', key: 'category', render: v => <span dir="rtl">{v}</span> },
-                    { title: 'Amount', dataIndex: 'amount', key: 'amount', render: v => <AmountDisplay amount={v as number} /> },
-                  ]}
+                  columns={sampleColumns}
                 />
               </>
             )}

@@ -18,6 +18,7 @@ export const Default: Story = {
       { id: '1', name: 'מזון', type: 'expense', excludedByDefault: false },
       { id: '2', name: 'הכנסות', type: 'income', excludedByDefault: true },
     ],
+    defaultExcludedIds: ['2'],
     onSetAccountIds: () => {},
     onSetExcludeCategories: () => {},
     onSetDateRange: () => {},

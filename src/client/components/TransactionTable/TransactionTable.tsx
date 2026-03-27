@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
-import { Input, Select, Table, Tag, Tooltip } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Input, Select, Table, Tag } from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table/index.js';
 import type { SorterResult } from 'antd/es/table/interface.js';
-import { AmountDisplay } from '../AmountDisplay/AmountDisplay.js';
 import type { Category, Transaction, TransactionFilters } from '../../../shared/types.js';
+import { amountCol, dateCol, descriptionCol } from '../tableColumns.js';
+import styles from './TransactionTable.module.css';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -17,14 +18,20 @@ interface TransactionTableProps {
   onPageChange: (page: number, pageSize: number) => void;
   onSort: (sortBy: TransactionFilters['sortBy'], sortOrder: 'asc' | 'desc') => void;
   onSearch: (search: string) => void;
+  initialSearch?: string;
 }
 
 export function TransactionTable({
   transactions, total, page, pageSize, isLoading,
   allCategories, pageCategoryIds, onPageCategoryChange,
-  onPageChange, onSort, onSearch,
+  onPageChange, onSort, onSearch, initialSearch,
 }: TransactionTableProps) {
-  const [localSearch, setLocalSearch] = useState('');
+  const [localSearch, setLocalSearch] = useState(initialSearch ?? '');
+
+  // Sync input when search is set externally (e.g. navigating from another page)
+  useEffect(() => {
+    setLocalSearch(initialSearch ?? '');
+  }, [initialSearch]);
   const [categoryInput, setCategoryInput] = useState('');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectRef = useRef<any>(null);
@@ -58,20 +65,13 @@ export function TransactionTable({
   }
 
   const columns: ColumnsType<Transaction> = [
-    { title: 'Date', dataIndex: 'date', key: 'date', sorter: true, defaultSortOrder: 'descend' },
-    {
-      title: 'Description', dataIndex: 'description', key: 'description',
-      ellipsis: { showTitle: false },
-      render: v => <Tooltip title={v}><span dir="rtl">{v}</span></Tooltip>,
-    },
+    dateCol<Transaction>({ sorter: true, defaultSortOrder: 'descend' }),
+    descriptionCol<Transaction>({ sorter: undefined }),
     {
       title: 'Category', dataIndex: 'categoryName', key: 'category', sorter: true,
       render: v => v ? <span dir="rtl">{v}</span> : '—',
     },
-    {
-      title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: true, width: 130, fixed: 'right',
-      render: v => <AmountDisplay amount={v as number} />,
-    },
+    amountCol<Transaction>({ sorter: true, width: 130, fixed: 'right' }),
     { title: 'Account', dataIndex: 'accountName', key: 'account', sorter: true },
     { title: 'Payment', dataIndex: 'paymentMethod', key: 'paymentMethod', render: v => v ?? '—' },
   ];
@@ -88,7 +88,7 @@ export function TransactionTable({
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className={styles.toolbar}>
         <Select
           ref={selectRef}
           mode="multiple"
@@ -117,7 +117,7 @@ export function TransactionTable({
             if (!e.target.value) onSearch('');
           }}
           onSearch={value => onSearch(value)}
-          allowClear
+          allowClear={{ clearIcon: <span style={{ fontSize: 12, color: '#888' }}>Clear</span> }}
           style={{ flex: 1, minWidth: 200 }}
         />
       </div>

@@ -1,6 +1,7 @@
 import { Layout, Menu, Typography } from 'antd';
 import { SettingOutlined } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import styles from './SettingsPage.module.css';
 
 const { Sider, Content } = Layout;
 const { Title } = Typography;
@@ -12,6 +13,7 @@ const SETTINGS_MENU_ITEMS = [
     type: 'group' as const,
     children: [
       { key: '/settings/categories', label: 'Hidden Categories' },
+      { key: '/settings/mapping', label: 'Category Mapping' },
     ],
   },
   {
@@ -30,9 +32,9 @@ export function SettingsPage() {
   const navigate = useNavigate();
 
   return (
-    <Layout style={{ minHeight: '100%', background: '#fff' }}>
-      <Sider width={200} style={{ background: '#fff', borderRight: '1px solid #f0f0f0' }}>
-        <div style={{ padding: '16px 16px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+    <Layout className={styles.layout}>
+      <Sider width={200} className={styles.sider}>
+        <div className={styles.siderHeader}>
           <SettingOutlined />
           <Title level={5} style={{ margin: 0 }}>Settings</Title>
         </div>
@@ -41,10 +43,10 @@ export function SettingsPage() {
           selectedKeys={[location.pathname]}
           items={SETTINGS_MENU_ITEMS}
           onClick={({ key }) => navigate(key)}
-          style={{ borderRight: 0 }}
+          className={styles.menu}
         />
       </Sider>
-      <Content style={{ padding: 24, overflowY: 'auto' }}>
+      <Content className={styles.content}>
         <Outlet />
       </Content>
     </Layout>

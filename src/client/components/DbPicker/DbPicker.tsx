@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Button, Card, Input, List, Popconfirm, Space, Tag, Typography, Spin } from 'antd';
+import { Button, Card, Input, Popconfirm, Space, Tag, Typography, Spin } from 'antd';
 import { CheckOutlined, DatabaseOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { databasesApi } from '../../httpClient/client.js';
-import type { DbEntry } from '../../../shared/types.js';
+import { useDbPicker } from '../../hooks/useDbPicker.js';
+import styles from './DbPicker.module.css';
 
 const { Text } = Typography;
 
@@ -13,72 +12,11 @@ interface DbPickerProps {
 }
 
 export function DbPicker({ onSwitched, viewingFilename, onView }: DbPickerProps) {
-  const [dbs, setDbs] = useState<DbEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newName, setNewName] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [switching, setSwitching] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [editingFilename, setEditingFilename] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-
-  const activeDb = dbs.find(d => d.isActive);
-
-  useEffect(() => { loadDbs(); }, []);
-
-  async function loadDbs() {
-    setLoading(true);
-    try { setDbs(await databasesApi.list()); }
-    finally { setLoading(false); }
-  }
-
-  async function handleSwitch(filename: string) {
-    setSwitching(filename);
-    try {
-      await databasesApi.switch(filename);
-      await loadDbs();
-      onSwitched();
-    } finally { setSwitching(null); }
-  }
-
-  async function handleDelete(filename: string) {
-    setDeleting(filename);
-    try {
-      await databasesApi.delete(filename);
-      await loadDbs();
-    } finally { setDeleting(null); }
-  }
-
-  function startEdit(db: DbEntry) {
-    setEditingFilename(db.filename);
-    setEditValue(db.name);
-  }
-
-  async function commitEdit(filename: string) {
-    if (!editValue.trim()) { cancelEdit(); return; }
-    try {
-      await databasesApi.rename(filename, editValue.trim());
-      await loadDbs();
-      // If we renamed the active db, notify parent to refresh
-      const wasActive = dbs.find(d => d.filename === filename)?.isActive;
-      if (wasActive) onSwitched();
-    } finally { cancelEdit(); }
-  }
-
-  function cancelEdit() {
-    setEditingFilename(null);
-    setEditValue('');
-  }
-
-  async function handleCreate() {
-    setCreating(true);
-    try {
-      await databasesApi.create(newName.trim());
-      setNewName('');
-      await loadDbs();
-      onSwitched();
-    } finally { setCreating(false); }
-  }
+  const {
+    dbs, loading, newName, setNewName, creating, switching, deleting,
+    editingFilename, editValue, setEditValue, activeDb,
+    handleSwitch, handleDelete, startEdit, commitEdit, cancelEdit, handleCreate,
+  } = useDbPicker({ onSwitched });
 
   return (
     <Card
@@ -88,40 +26,59 @@ export function DbPicker({ onSwitched, viewingFilename, onView }: DbPickerProps)
       {loading ? (
         <Spin size="small" />
       ) : (
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <List
-            size="small"
-            bordered
-            dataSource={dbs}
-            renderItem={db => (
-              <List.Item
-                style={{
-                  cursor: onView ? 'pointer' : 'default',
-                  background: viewingFilename === db.filename ? '#e6f4ff' : undefined,
-                  borderRadius: 4,
-                  transition: 'background 0.15s',
-                }}
+        <Space orientation="vertical" className="full-width">
+          <div className={styles.dbList}>
+            {dbs.map(db => (
+              <div
+                key={db.filename}
+                className={[
+                  styles.dbRow,
+                  onView ? styles.dbRowClickable : '',
+                  viewingFilename === db.filename ? styles.dbRowActive : '',
+                ].filter(Boolean).join(' ')}
                 onClick={() => onView?.(db.filename)}
-                actions={[
-                  db.isActive
+              >
+                <div>
+                  {editingFilename === db.filename ? (
+                    <Input
+                      size="small"
+                      value={editValue}
+                      autoFocus
+                      onChange={e => setEditValue(e.target.value)}
+                      onPressEnter={() => commitEdit(db.filename)}
+                      onBlur={() => commitEdit(db.filename)}
+                      onKeyDown={e => e.key === 'Escape' && cancelEdit()}
+                      className={styles.nameInput}
+                    />
+                  ) : (
+                    <Space>
+                      <Text strong={db.isActive}>{db.name}</Text>
+                      {db.createdAt && (
+                        <Text type="secondary" className="text-sm">last updated {db.createdAt}</Text>
+                      )}
+                    </Space>
+                  )}
+                </div>
+                <Space size="small" onClick={e => e.stopPropagation()}>
+                  {db.isActive
                     ? <Tag icon={<CheckOutlined />} color="success">Active</Tag>
                     : (
                       <Button
                         size="small"
                         loading={switching === db.filename}
-                        onClick={e => { e.stopPropagation(); handleSwitch(db.filename); }}
+                        onClick={() => handleSwitch(db.filename)}
                       >
                         Load
                       </Button>
-                    ),
-                  editingFilename !== db.filename && (
+                    )}
+                  {editingFilename !== db.filename && (
                     <Button
                       size="small"
                       icon={<EditOutlined />}
-                      onClick={e => { e.stopPropagation(); startEdit(db); }}
+                      onClick={() => startEdit(db)}
                     />
-                  ),
-                  !db.isActive && editingFilename !== db.filename && (
+                  )}
+                  {!db.isActive && editingFilename !== db.filename && (
                     <Popconfirm
                       title={`Delete "${db.name}"?`}
                       description="This will permanently delete the database file."
@@ -135,34 +92,13 @@ export function DbPicker({ onSwitched, viewingFilename, onView }: DbPickerProps)
                         danger
                         icon={<DeleteOutlined />}
                         loading={deleting === db.filename}
-                        onClick={e => e.stopPropagation()}
                       />
                     </Popconfirm>
-                  ),
-                ].filter(Boolean)}
-              >
-                {editingFilename === db.filename ? (
-                  <Input
-                    size="small"
-                    value={editValue}
-                    autoFocus
-                    onChange={e => setEditValue(e.target.value)}
-                    onPressEnter={() => commitEdit(db.filename)}
-                    onBlur={() => commitEdit(db.filename)}
-                    onKeyDown={e => e.key === 'Escape' && cancelEdit()}
-                    style={{ width: 180 }}
-                  />
-                ) : (
-                  <Space>
-                    <Text strong={db.isActive}>{db.name}</Text>
-                    {db.createdAt && (
-                      <Text type="secondary" style={{ fontSize: 12 }}>last updated {db.createdAt}</Text>
-                    )}
-                  </Space>
-                )}
-              </List.Item>
-            )}
-            footer={
+                  )}
+                </Space>
+              </div>
+            ))}
+            <div className={styles.addRow}>
               <Space.Compact style={{ width: '100%' }}>
                 <Input
                   placeholder={`New database name (default: ${activeDb?.name ?? 'date'})`}
@@ -179,8 +115,8 @@ export function DbPicker({ onSwitched, viewingFilename, onView }: DbPickerProps)
                   Create
                 </Button>
               </Space.Compact>
-            }
-          />
+            </div>
+          </div>
         </Space>
       )}
     </Card>

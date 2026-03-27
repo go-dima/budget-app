@@ -1,0 +1,17 @@
+.masterRow {
+  margin-bottom: 6px;
+}
+
+.scrollList {
+  max-height: 180px;
+  overflow-y: auto;
+  padding-left: 4px;
+}
+
+.itemList {
+  padding-left: 4px;
+}
+
+.checkboxItem {
+  margin-bottom: 4px;
+}

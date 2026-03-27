@@ -2,16 +2,19 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestDb } from '../../db/index.js';
 import { TransactionService } from './TransactionService.js';
 import { AccountService } from './AccountService.js';
+import { CategoryService } from './CategoryService.js';
 
 describe('TransactionService', () => {
   let service: TransactionService;
   let accountService: AccountService;
+  let categoryService: CategoryService;
   let accountId: string;
 
   beforeEach(() => {
     const db = createTestDb();
     service = new TransactionService(db);
     accountService = new AccountService(db);
+    categoryService = new CategoryService(db);
     accountId = accountService.create('Test Bank').id;
   });
 
@@ -29,9 +32,9 @@ describe('TransactionService', () => {
     ...overrides,
   });
 
-  it('inserts transactions and returns count', () => {
-    const n = service.insert([txn(), txn({ date: '2025-01-16', reference: '124' })]);
-    expect(n).toBe(2);
+  it('inserts transactions and returns ids', () => {
+    const ids = service.insert([txn(), txn({ date: '2025-01-16', reference: '124' })]);
+    expect(ids).toHaveLength(2);
   });
 
   it('list returns all transactions with pagination', () => {
@@ -65,5 +68,21 @@ describe('TransactionService', () => {
       txn({ date: '2025-01-16', reference: '124' }), // new
     ]);
     expect(dupes).toEqual([true, false]);
+  });
+
+  it('bulkSetCategory sets a category on a transaction', () => {
+    const categoryId = categoryService.findOrCreate('Food', 'expense').id;
+    const [id] = service.insert([txn()]);
+    service.bulkSetCategory([{ id: id!, categoryId }]);
+    const result = service.list();
+    expect(result.transactions[0].categoryId).toBe(categoryId);
+  });
+
+  it('bulkSetCategory clears a category when categoryId is null', () => {
+    const categoryId = categoryService.findOrCreate('Food', 'expense').id;
+    const [id] = service.insert([txn({ categoryId })]);
+    service.bulkSetCategory([{ id: id!, categoryId: null }]);
+    const result = service.list();
+    expect(result.transactions[0].categoryId).toBeNull();
   });
 });

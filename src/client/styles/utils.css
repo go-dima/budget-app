@@ -1,0 +1,28 @@
+/* Margin bottom utilities */
+.mb-8 { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+
+/* Flex utilities */
+.flex-center { display: flex; align-items: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-end { display: flex; justify-content: flex-end; }
+.full-width { width: 100%; }
+
+/* Typography */
+.text-xs { font-size: 11px; }
+.text-sm { font-size: 12px; }
+.text-body-sm { font-size: 13px; }
+
+/* Layout helpers */
+.centered-spin { display: block; padding: 48px; }
+.clickable-block { cursor: pointer; display: block; }
+.rtl-block { direction: rtl; display: block; }
+
+/* Stat label (gray secondary label text) */
+.stat-label { color: #8c8c8c; font-size: 12px; }
+
+/* Clickable row in tables */
+.clickable-row { cursor: pointer; }
