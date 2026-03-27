@@ -29,6 +29,13 @@
       "when": 1774200000000,
       "tag": "0003_preferred_category",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1774621532843,
+      "tag": "0004_hard_scalphunter",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,7 @@ import type {
   MonthlyTrendItem, TopCategoryItem,
   MonthlyReportRow, YearlyReportRow, CategoryReportRow, MonthDetailRow,
   ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse,
-  TransactionFilters, DbEntry, CategoryMapping, RecalculateResult,
+  TransactionFilters, DbEntry, CategoryMapping, RecalculateResult, PaymentMapping,
 } from '../../shared/types.js';
 
 export class ApiError extends Error {
@@ -80,7 +80,7 @@ export const reportsApi = {
   monthDetail: (month: string, filters: TransactionFilters) =>
     request<MonthDetailRow[]>(`/api/reports/month-detail?month=${month}&${toParams(filters)}`),
   yearDetail: (year: string, filters: TransactionFilters) =>
-    request<MonthDetailRow[]>(`/api/reports/year-detail?year=${year}&${toParams(filters)}`),
+    request<MonthlyReportRow[]>(`/api/reports/year-detail?year=${year}&${toParams(filters)}`),
 };
 
 export const databasesApi = {
@@ -123,6 +123,21 @@ export const categoryMappingApi = {
   delete: (account: string, description: string) =>
     request<void>(
       `/api/category-mapping/${enc(account)}/${enc(description)}`,
+      { method: 'DELETE' }
+    ),
+};
+
+export const paymentMappingApi = {
+  getAll: () => request<PaymentMapping[]>('/api/payment-mapping'),
+  recalculate: () => request<RecalculateResult>('/api/payment-mapping/recalculate', { method: 'POST' }),
+  setPreferred: (account: string, description: string, paymentMethod: string) =>
+    request<PaymentMapping>(
+      `/api/payment-mapping/${enc(account)}/${enc(description)}/preferred`,
+      { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paymentMethod }) }
+    ),
+  delete: (account: string, description: string) =>
+    request<void>(
+      `/api/payment-mapping/${enc(account)}/${enc(description)}`,
       { method: 'DELETE' }
     ),
 };

@@ -68,7 +68,7 @@ export function TransactionTable({
     dateCol<Transaction>({ sorter: true, defaultSortOrder: 'descend' }),
     descriptionCol<Transaction>({ sorter: undefined }),
     {
-      title: 'Category', dataIndex: 'categoryName', key: 'category', sorter: true,
+      title: 'Category', dataIndex: 'categoryName', key: 'category', sorter: true, width: 140,
       render: v => v ? <span dir="rtl">{v}</span> : '—',
     },
     amountCol<Transaction>({ sorter: true, width: 130, fixed: 'right' }),

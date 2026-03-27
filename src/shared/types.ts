@@ -30,6 +30,13 @@ export interface RecalculateResult {
   noops: number;
 }
 
+export interface PaymentMapping {
+  account: string;
+  description: string;
+  preferredPaymentMethod: string | null;
+  suggestedPaymentMethods: string[];
+}
+
 export interface Transaction {
   id: string;
   accountId: string;

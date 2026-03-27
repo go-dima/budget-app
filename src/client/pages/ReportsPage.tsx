@@ -2,13 +2,23 @@ import { useState } from 'react';
 import { Card, Segmented, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { txnsByCategoryUrl } from '../utils/navigation.js';
-import { useReport } from '../hooks/useReports.js';
+import { useReport, useMonthDetail, useYearDetail } from '../hooks/useReports.js';
 import { MonthlyTrendChart } from '../components/MonthlyTrendChart/MonthlyTrendChart.js';
 import { CategoryBreakdownChart } from '../components/CategoryBreakdownChart/CategoryBreakdownChart.js';
-import { MonthlyTable, YearlyTable, CategoryTable } from '../components/ReportTables/ReportTables.js';
+import { MonthlyTable, YearlyTable, CategoryTable, MonthDetailTable } from '../components/ReportTables/ReportTables.js';
 import type { ReportGrouping, MonthlyReportRow, YearlyReportRow, CategoryReportRow } from '../../shared/types.js';
 
 const { Title } = Typography;
+
+function MonthDetailPanel({ month }: { month: string }) {
+  const { data, isLoading } = useMonthDetail(month);
+  return <MonthDetailTable data={data} loading={isLoading} />;
+}
+
+function YearDetailPanel({ year }: { year: string }) {
+  const { data, isLoading } = useYearDetail(year);
+  return <MonthlyTable data={data} loading={isLoading} />;
+}
 
 const GROUPING_OPTIONS = [
   { value: 'monthly', label: 'Monthly' },
@@ -36,9 +46,15 @@ export function ReportsPage() {
         {data.length === 0 ? (
           <Typography.Text type="secondary">No data for the selected filters.</Typography.Text>
         ) : grouping === 'monthly' ? (
-          <MonthlyTable data={data as MonthlyReportRow[]} />
+          <MonthlyTable
+            data={data as MonthlyReportRow[]}
+            expandedRowRender={r => <MonthDetailPanel month={r.month} />}
+          />
         ) : grouping === 'yearly' ? (
-          <YearlyTable data={data as YearlyReportRow[]} />
+          <YearlyTable
+            data={data as YearlyReportRow[]}
+            expandedRowRender={r => <YearDetailPanel year={r.year} />}
+          />
         ) : (
           <CategoryTable
             data={data as CategoryReportRow[]}

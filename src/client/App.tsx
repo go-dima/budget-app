@@ -9,6 +9,7 @@ import { ConfigPage } from './pages/ConfigPage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { DatabasesPage } from './pages/DatabasesPage.js';
 import { CategoryMappingPage } from './pages/CategoryMappingPage.js';
+import { PaymentMappingPage } from './pages/PaymentMappingPage.js';
 
 function AppRoutes() {
   return (
@@ -23,6 +24,7 @@ function AppRoutes() {
           <Route path="databases" element={<DatabasesPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="mapping" element={<CategoryMappingPage />} />
+          <Route path="payment-mapping" element={<PaymentMappingPage />} />
         </Route>
       </Routes>
     </AppLayout>

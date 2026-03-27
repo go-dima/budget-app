@@ -16,6 +16,7 @@ import { parseSheet, getSheetMeta } from '../utils/excelParser.js';
 import { AccountService } from './AccountService.js';
 import { CategoryService } from './CategoryService.js';
 import { CategoryMappingService } from './CategoryMappingService.js';
+import { PaymentMappingService } from './PaymentMappingService.js';
 import { TransactionService } from './TransactionService.js';
 
 export class ImportService {
@@ -192,6 +193,23 @@ export class ImportService {
 
         if (mappingUpdates.length > 0) {
           this.txnSvc.bulkSetCategory(mappingUpdates);
+        }
+
+        // Apply payment method mappings for rows without a payment method
+        const pmMappingSvc = new PaymentMappingService(this.db);
+        const paymentMethodUpdates: { id: string; paymentMethod: string }[] = [];
+        for (let i = 0; i < newRows.length; i++) {
+          const row = newRows[i]!;
+          const rowId = insertedIds[i]!;
+          if (row.paymentMethod === null) {
+            const pmMapping = pmMappingSvc.getMappingFor(accountName, row.description);
+            if (pmMapping?.preferred) {
+              paymentMethodUpdates.push({ id: rowId, paymentMethod: pmMapping.preferred });
+            }
+          }
+        }
+        if (paymentMethodUpdates.length > 0) {
+          this.txnSvc.bulkSetPaymentMethod(paymentMethodUpdates);
         }
 
         this.db.insert(importLogs).values({

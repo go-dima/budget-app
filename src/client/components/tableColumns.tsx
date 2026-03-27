@@ -2,9 +2,9 @@ import type { ColumnType } from 'antd/es/table';
 import { Tooltip } from 'antd';
 import { AmountDisplay } from './AmountDisplay/AmountDisplay.js';
 
-/** Date column — sortable, 110px wide */
+/** Date column — sortable, 120px wide */
 export function dateCol<T extends { date: string }>(overrides?: Partial<ColumnType<T>>): ColumnType<T> {
-  return { title: 'Date', dataIndex: 'date', key: 'date', width: 110, ...overrides };
+  return { title: 'Date', dataIndex: 'date', key: 'date', width: 120, ...overrides };
 }
 
 /** RTL description column — ellipsis + tooltip */

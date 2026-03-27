@@ -1,6 +1,6 @@
 import { reportsApi } from '../httpClient/client.js';
 import { useFilters } from '../contexts/FilterContext.js';
-import type { MonthlyTrendItem, TopCategoryItem, MonthlyReportRow, YearlyReportRow, CategoryReportRow, ReportGrouping } from '../../shared/types.js';
+import type { MonthlyTrendItem, TopCategoryItem, MonthlyReportRow, YearlyReportRow, CategoryReportRow, ReportGrouping, MonthDetailRow } from '../../shared/types.js';
 import { useFetch } from './useFetch.js';
 
 export function useMonthlyTrend() {
@@ -11,6 +11,16 @@ export function useMonthlyTrend() {
 export function useTopCategories() {
   const { filters } = useFilters();
   return useFetch(() => reportsApi.topCategories(filters), [] as TopCategoryItem[], [filters]);
+}
+
+export function useMonthDetail(month: string) {
+  const { filters } = useFilters();
+  return useFetch(() => reportsApi.monthDetail(month, filters), [] as MonthDetailRow[], [month, filters]);
+}
+
+export function useYearDetail(year: string) {
+  const { filters } = useFilters();
+  return useFetch(() => reportsApi.yearDetail(year, filters), [] as MonthlyReportRow[], [year, filters]);
 }
 
 export function useReport(grouping: ReportGrouping) {

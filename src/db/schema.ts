@@ -47,6 +47,20 @@ export const importLogs = sqliteTable('import_logs', {
   importedAt: integer('imported_at').notNull(),
 });
 
+export const descriptionPaymentMethodMap = sqliteTable(
+  'description_payment_method_map',
+  {
+    id: text('id').primaryKey(),
+    account: text('account').notNull(),
+    description: text('description').notNull(),
+    preferredPaymentMethod: text('preferred_payment_method'),
+    suggestedPaymentMethods: text('suggested_payment_methods').notNull().default('[]'),
+  },
+  (t) => ({
+    uniq: unique().on(t.account, t.description),
+  })
+);
+
 export const descriptionCategoryMap = sqliteTable(
   'description_category_map',
   {

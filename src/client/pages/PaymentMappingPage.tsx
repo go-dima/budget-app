@@ -3,20 +3,18 @@ import { Alert, Button, Spin, Table, Typography, message } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
-import { categoryMappingApi } from '../httpClient/client.js';
-import { useCategoryMapping } from '../hooks/useCategoryMapping.js';
-import { useCategories } from '../hooks/useCategories.js';
+import { paymentMappingApi } from '../httpClient/client.js';
+import { usePaymentMapping } from '../hooks/usePaymentMapping.js';
 import { PageContainer } from '../components/PageContainer/PageContainer.js';
 import { PageHeader } from '../components/PageHeader/PageHeader.js';
 import { AccountTabs } from '../components/AccountTabs/AccountTabs.js';
 import { SuggestedChips } from '../components/SuggestedChips/SuggestedChips.js';
 import { MappingSelectCell } from '../components/MappingSelectCell/MappingSelectCell.js';
 import { MappingToolbar } from '../components/MappingToolbar/MappingToolbar.js';
-import type { CategoryMapping, Category } from '../../shared/types.js';
+import type { PaymentMapping } from '../../shared/types.js';
 
-export function CategoryMappingPage() {
-  const { data, isLoading, error, reload } = useCategoryMapping();
-  const { data: categories } = useCategories();
+export function PaymentMappingPage() {
+  const { data, isLoading, error, reload } = usePaymentMapping();
   const [recalculating, setRecalculating] = useState(false);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
@@ -25,35 +23,25 @@ export function CategoryMappingPage() {
     navigate('/transactions', { state: { search: description } });
   }, [navigate]);
 
-  const categoryOptions = useMemo(
-    () => categories.map((c: Category) => ({ value: c.id, label: c.name })),
-    [categories],
-  );
-
-  const handleSetPreferred = useCallback(async (account: string, description: string, categoryId: string) => {
-    await categoryMappingApi.setPreferred(account, description, categoryId);
-    reload();
-  }, [reload]);
-
-  const handleRemoveSuggested = useCallback(async (account: string, description: string, categoryId: string) => {
-    await categoryMappingApi.removeSuggested(account, description, categoryId);
+  const handleSetPreferred = useCallback(async (account: string, description: string, paymentMethod: string) => {
+    await paymentMappingApi.setPreferred(account, description, paymentMethod);
     reload();
   }, [reload]);
 
   const handleDelete = useCallback(async (account: string, description: string) => {
-    await categoryMappingApi.delete(account, description);
+    await paymentMappingApi.delete(account, description);
     reload();
   }, [reload]);
 
-  const handleAddRow = useCallback(async (account: string, description: string, categoryId: string) => {
-    await categoryMappingApi.setPreferred(account, description, categoryId);
+  const handleAddRow = useCallback(async (account: string, description: string, paymentMethod: string) => {
+    await paymentMappingApi.setPreferred(account, description, paymentMethod);
     reload();
   }, [reload]);
 
   async function handleRecalculate() {
     setRecalculating(true);
     try {
-      const result = await categoryMappingApi.recalculate();
+      const result = await paymentMappingApi.recalculate();
       message.success(`Mapping recalculated: ${result.updated} updated, ${result.conflicts} without preferred, ${result.noops} no-ops`);
       reload();
     } finally {
@@ -61,7 +49,12 @@ export function CategoryMappingPage() {
     }
   }
 
-  const tableColumns = useMemo<ColumnsType<CategoryMapping>>(() => [
+  const accountNames = useMemo(
+    () => Array.from(new Set(data.map(m => m.account))).sort(),
+    [data],
+  );
+
+  const tableColumns = useMemo<ColumnsType<PaymentMapping>>(() => [
     {
       title: 'Description',
       dataIndex: 'description',
@@ -75,25 +68,26 @@ export function CategoryMappingPage() {
     {
       title: 'Preferred',
       key: 'preferred',
-      render: (_: unknown, record: CategoryMapping) => (
-        <MappingSelectCell
-          value={record.preferredCategoryId}
-          valueLabel={record.preferredCategory?.name}
-          options={categoryOptions}
-          onSave={(catId) => handleSetPreferred(record.account, record.description, catId)}
-          dir="rtl"
-        />
-      ),
+      render: (_: unknown, record: PaymentMapping) => {
+        const accountData = data.filter(m => m.account === record.account);
+        const options = getPaymentOptions(accountData);
+        return (
+          <MappingSelectCell
+            value={record.preferredPaymentMethod}
+            options={options}
+            onSave={(pm) => handleSetPreferred(record.account, record.description, pm)}
+          />
+        );
+      },
     },
     {
       title: 'Suggested',
       key: 'suggested',
-      render: (_: unknown, record: CategoryMapping) => (
+      render: (_: unknown, record: PaymentMapping) => (
         <SuggestedChips
-          items={(record.suggestedCategories ?? []).map(c => ({ key: c.id, label: c.name }))}
-          canRemove
-          onSelect={(id) => handleSetPreferred(record.account, record.description, id)}
-          onRemove={(id) => handleRemoveSuggested(record.account, record.description, id)}
+          items={record.suggestedPaymentMethods.map(m => ({ key: m, label: m }))}
+          canRemove={false}
+          onSelect={(m) => handleSetPreferred(record.account, record.description, m)}
         />
       ),
     },
@@ -101,7 +95,7 @@ export function CategoryMappingPage() {
       title: '',
       key: 'delete',
       width: 48,
-      render: (_: unknown, record: CategoryMapping) => (
+      render: (_: unknown, record: PaymentMapping) => (
         <Button
           icon={<DeleteOutlined />}
           danger
@@ -109,12 +103,12 @@ export function CategoryMappingPage() {
         />
       ),
     },
-  ], [categoryOptions, navigateToSearch, handleSetPreferred, handleRemoveSuggested, handleDelete]);
+  ], [data, navigateToSearch, handleSetPreferred, handleDelete]);
 
   if (isLoading) {
     return (
       <PageContainer>
-        <Typography.Title level={2}>Category Mapping</Typography.Title>
+        <Typography.Title level={2}>Payment Mapping</Typography.Title>
         <Spin style={{ display: 'block', padding: 48 }} />
       </PageContainer>
     );
@@ -123,46 +117,46 @@ export function CategoryMappingPage() {
   if (error) {
     return (
       <PageContainer>
-        <Typography.Title level={2}>Category Mapping</Typography.Title>
+        <Typography.Title level={2}>Payment Mapping</Typography.Title>
         <Alert type="error" title={error.message} />
       </PageContainer>
     );
   }
 
-  const accounts = Array.from(new Set(data.map(m => m.account))).sort();
   const lowerSearch = search.toLowerCase();
 
   return (
     <PageContainer>
-      <PageHeader title="Category Mapping">
+      <PageHeader title="Payment Mapping">
         <Button type="default" loading={recalculating} onClick={handleRecalculate}>
           Re-calculate
         </Button>
       </PageHeader>
       <AccountTabs
-        accounts={accounts}
+        accounts={accountNames}
         renderContent={(account) => {
           const accountData = data.filter(m => m.account === account);
           const filtered = lowerSearch
             ? accountData.filter(m => m.description.toLowerCase().includes(lowerSearch))
             : accountData;
+          const paymentOptions = getPaymentOptions(accountData);
           return (
             <>
               <MappingToolbar
                 search={search}
                 onSearchChange={setSearch}
                 descriptionSuggestions={accountData.map(m => m.description)}
-                valueOptions={categoryOptions}
-                valuePlaceholder="Category"
-                onAdd={(desc, catId) => handleAddRow(account, desc, catId)}
+                valueOptions={paymentOptions}
+                valuePlaceholder="Payment method"
+                onAdd={(desc, pm) => handleAddRow(account, desc, pm)}
               />
-              <Table<CategoryMapping>
+              <Table<PaymentMapping>
                 columns={tableColumns}
                 dataSource={filtered}
                 rowKey={r => `${r.account}::${r.description}`}
                 locale={{ emptyText: 'No mappings for this account yet.' }}
                 pagination={{ pageSize: 20 }}
-                rowClassName={r => r.preferredCategoryId === null ? 'mapping-row-no-preferred' : ''}
+                rowClassName={r => r.preferredPaymentMethod === null ? 'mapping-row-no-preferred' : ''}
               />
             </>
           );
@@ -170,4 +164,13 @@ export function CategoryMappingPage() {
       />
     </PageContainer>
   );
+}
+
+function getPaymentOptions(accountData: PaymentMapping[]): { value: string; label: string }[] {
+  const methods = new Set<string>();
+  for (const m of accountData) {
+    if (m.preferredPaymentMethod) methods.add(m.preferredPaymentMethod);
+    for (const s of m.suggestedPaymentMethods) methods.add(s);
+  }
+  return Array.from(methods).sort().map(m => ({ value: m, label: m }));
 }

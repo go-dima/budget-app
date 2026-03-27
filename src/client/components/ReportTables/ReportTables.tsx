@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react';
 import { Table } from 'antd';
 import { AmountDisplay } from '../AmountDisplay/AmountDisplay.js';
-import type { MonthlyReportRow, YearlyReportRow, CategoryReportRow } from '../../../shared/types.js';
+import type { MonthlyReportRow, YearlyReportRow, CategoryReportRow, MonthDetailRow } from '../../../shared/types.js';
 
 const MONTHLY_COLUMNS = [
   { title: 'Month', dataIndex: 'month', key: 'month', sorter: (a: MonthlyReportRow, b: MonthlyReportRow) => a.month.localeCompare(b.month) },
@@ -26,12 +27,41 @@ const CATEGORY_COLUMNS = [
   { title: 'Avg Transaction', dataIndex: 'avgTransaction', key: 'avgTransaction', sorter: (a: CategoryReportRow, b: CategoryReportRow) => a.avgTransaction - b.avgTransaction, render: (v: number) => <AmountDisplay amount={-v} /> },
 ];
 
-export function MonthlyTable({ data }: { data: MonthlyReportRow[] }) {
-  return <Table dataSource={data} columns={MONTHLY_COLUMNS} rowKey="month" pagination={false} size="small" />;
+const MONTH_DETAIL_COLUMNS = [
+  { title: 'Category', dataIndex: 'categoryName', key: 'categoryName', render: (v: string) => <span dir="rtl">{v}</span> },
+  { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (v: number) => <AmountDisplay amount={-v} /> },
+  { title: '% of Expenses', dataIndex: 'percentage', key: 'percentage', render: (v: number) => `${v}%` },
+];
+
+export function MonthDetailTable({ data, loading }: { data: MonthDetailRow[]; loading?: boolean }) {
+  return <Table dataSource={data} columns={MONTH_DETAIL_COLUMNS} rowKey="categoryId" pagination={false} size="small" loading={loading} />;
 }
 
-export function YearlyTable({ data }: { data: YearlyReportRow[] }) {
-  return <Table dataSource={data} columns={YEARLY_COLUMNS} rowKey="year" pagination={false} size="small" />;
+export function MonthlyTable({ data, loading, expandedRowRender }: { data: MonthlyReportRow[]; loading?: boolean; expandedRowRender?: (r: MonthlyReportRow) => ReactNode }) {
+  return (
+    <Table
+      dataSource={data}
+      columns={MONTHLY_COLUMNS}
+      rowKey="month"
+      pagination={false}
+      size="small"
+      loading={loading}
+      expandable={expandedRowRender ? { expandedRowRender } : undefined}
+    />
+  );
+}
+
+export function YearlyTable({ data, expandedRowRender }: { data: YearlyReportRow[]; expandedRowRender?: (r: YearlyReportRow) => ReactNode }) {
+  return (
+    <Table
+      dataSource={data}
+      columns={YEARLY_COLUMNS}
+      rowKey="year"
+      pagination={false}
+      size="small"
+      expandable={expandedRowRender ? { expandedRowRender } : undefined}
+    />
+  );
 }
 
 export function CategoryTable({ data, onCategoryClick }: { data: CategoryReportRow[]; onCategoryClick: (id: string) => void }) {

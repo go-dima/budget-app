@@ -91,7 +91,7 @@ Default: **Monthly**. Selection persists during the session but resets on page r
 
 **Chart**: Horizontal bar chart or pie chart showing category distribution.
 
-**Drill-down**: Clicking a category row navigates to `/transactions?category={id}` pre-filtered.
+**Drill-down**: Clicking a category row navigates to `/transactions?category={id}` pre-filtered. Transactions with no assigned category appear as a special **"Uncategorized"** row; clicking it has no drill-down navigation.
 
 ---
 

@@ -85,4 +85,11 @@ describe('TransactionService', () => {
     const result = service.list();
     expect(result.transactions[0].categoryId).toBeNull();
   });
+
+  it('bulkSetPaymentMethod updates payment_method on given rows', () => {
+    const [id] = service.insert([txn({ paymentMethod: null })]);
+    service.bulkSetPaymentMethod([{ id: id!, paymentMethod: 'כרטיס אשראי' }]);
+    const txnResult = service.list().transactions.find(t => t.id === id);
+    expect(txnResult?.paymentMethod).toBe('כרטיס אשראי');
+  });
 });
