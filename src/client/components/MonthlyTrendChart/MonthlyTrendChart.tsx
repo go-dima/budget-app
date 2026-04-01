@@ -1,5 +1,6 @@
 import { Empty, Typography } from 'antd';
 import type { MonthlyTrendItem } from '../../../shared/types.js';
+import { formatAmount } from '../AmountDisplay/AmountDisplay.js';
 import styles from './MonthlyTrendChart.module.css';
 
 const { Text } = Typography;
@@ -24,12 +25,12 @@ export function MonthlyTrendChart({ data }: MonthlyTrendChartProps) {
               <div
                 className={styles.bar}
                 style={{ background: '#52c41a', height: maxVal > 0 ? `${(item.income / maxVal) * 100}%` : 0 }}
-                title={`Income: ₪${(item.income/100).toFixed(2)}`}
+                title={`Income: ${formatAmount(item.income)}`}
               />
               <div
                 className={styles.bar}
                 style={{ background: '#ff4d4f', height: maxVal > 0 ? `${(item.expenses / maxVal) * 100}%` : 0 }}
-                title={`Expenses: ₪${(item.expenses/100).toFixed(2)}`}
+                title={`Expenses: ${formatAmount(item.expenses)}`}
               />
             </div>
             <Text className={styles.monthLabel}>{item.month.slice(2)}</Text>

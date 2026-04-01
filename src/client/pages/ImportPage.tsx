@@ -1,9 +1,12 @@
+import { useEffect, useMemo } from 'react';
 import { Tag, Typography, Upload } from 'antd';
 import { DatabaseOutlined, InboxOutlined } from '@ant-design/icons';
 import { DbStatusTable } from '../components/DbStatusTable/DbStatusTable.js';
 import { ImportPreview } from '../components/ImportPreview/ImportPreview.js';
 import { ImportSummary } from '../components/ImportSummary/ImportSummary.js';
 import { CategoryReview } from '../components/CategoryReview/CategoryReview.js';
+import { ColumnMappingStep } from '../components/ColumnMappingStep/ColumnMappingStep.js';
+import { HeaderRowSelector } from '../components/HeaderRowSelector/HeaderRowSelector.js';
 import { EmptyState } from '../components/EmptyState/EmptyState.js';
 import { PageContainer } from '../components/PageContainer/PageContainer.js';
 import { useCategories } from '../hooks/useCategories.js';
@@ -15,12 +18,35 @@ const { Dragger } = Upload;
 export function ImportPage() {
   const {
     step, status, activeDb, preview, result, reviewTransactions,
-    isLoading, isResetting, currentFilename,
-    handleFileSelect, handleConfirm, handleReviewComplete,
-    handleReset, handleImportMore, handleGoToOverview,
+    isLoading, isResetting,
+    handleFileSelect, handleHeaderSelectionConfirm, handleConfirm, handleColumnMappingConfirm,
+    handleReviewComplete, handleReset, handleImportMore, handleGoToOverview,
   } = useImportFlow();
 
-  const { data: categories } = useCategories();
+  const { data: categories, reload: reloadCategories } = useCategories();
+
+  // Reload categories after import — import may have created new ones
+  useEffect(() => {
+    if (step === 'review') reloadCategories();
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Derive existing account names from DB status
+  const availableAccounts = useMemo(
+    () => status?.accounts.map(a => a.accountName) ?? [],
+    [status]
+  );
+
+  // All valid sheets for the column mapping step (sheets with no data are excluded)
+  const columnMappingSheets = useMemo(
+    () => (preview?.sheets ?? [])
+      .filter(s => !s.error && s.rowCount > 0)
+      .map(s => ({
+        sheetName: s.sheetName,
+        unknownColumns: s.unknownColumns ?? [],
+        storedMapping: s.storedColumnMapping ?? null,
+      })),
+    [preview]
+  );
 
   return (
     <PageContainer maxWidth={800}>
@@ -34,8 +60,8 @@ export function ImportPage() {
         </div>
       )}
 
-      {/* DB Status — always visible unless showing summary or review */}
-      {step !== 'summary' && step !== 'review' && (
+      {/* DB Status — always visible unless showing summary, review, or column mapping */}
+      {step !== 'summary' && step !== 'review' && step !== 'columnMapping' && step !== 'headerSelection' && (
         <div className="mb-24">
           <Title level={4}>Current Database State</Title>
           <DbStatusTable status={status} onReset={handleReset} isResetting={isResetting} />
@@ -59,11 +85,40 @@ export function ImportPage() {
         </div>
       )}
 
+      {/* Header Row Selection — for files with rows before the header */}
+      {step === 'headerSelection' && preview && (
+        <div className="mb-24">
+          <Title level={4}>Select Header Row</Title>
+          <HeaderRowSelector
+            sheets={preview.sheets.filter(s => s.rawRows != null)}
+            onConfirm={handleHeaderSelectionConfirm}
+          />
+        </div>
+      )}
+
       {/* Preview */}
       {step === 'preview' && preview && (
         <div className="mb-24">
           <Title level={4}>Preview</Title>
-          <ImportPreview preview={preview} onConfirm={(overrides, sheets) => handleConfirm(overrides, sheets)} isLoading={isLoading} />
+          <ImportPreview
+            preview={preview}
+            availableAccounts={availableAccounts}
+            onConfirm={(overrides, sheets) => handleConfirm(overrides, sheets)}
+            isLoading={isLoading}
+          />
+        </div>
+      )}
+
+      {/* Column Mapping — for files with unrecognised columns; shows all valid sheets */}
+      {step === 'columnMapping' && preview && (
+        <div className="mb-24">
+          <Title level={4}>Map Columns &amp; Assign Accounts</Title>
+          <ColumnMappingStep
+            sheets={columnMappingSheets}
+            availableAccounts={availableAccounts}
+            onConfirm={handleColumnMappingConfirm}
+            isLoading={isLoading}
+          />
         </div>
       )}
 
@@ -72,10 +127,9 @@ export function ImportPage() {
         <EmptyState title="Importing..." />
       )}
 
-      {/* Category Review */}
+      {/* Transaction Review */}
       {step === 'review' && (
         <div className="mb-24">
-          <Title level={4}>Review Categories</Title>
           <CategoryReview
             transactions={reviewTransactions}
             categories={categories}

@@ -121,6 +121,11 @@ export class TransactionService {
     }
   }
 
+  bulkDelete(ids: string[]): void {
+    if (ids.length === 0) return;
+    this.db.delete(transactions).where(inArray(transactions.id, ids)).run();
+  }
+
   bulkSetPaymentMethod(updates: { id: string; paymentMethod: string }[]): void {
     for (const u of updates) {
       this.db.update(transactions).set({ paymentMethod: u.paymentMethod }).where(eq(transactions.id, u.id)).run();

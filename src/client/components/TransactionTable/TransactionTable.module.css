@@ -5,3 +5,13 @@
   align-items: center;
   flex-wrap: wrap;
 }
+
+.paginationBar {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 12px 0;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: flex-end;
+}

@@ -50,34 +50,63 @@ Display a message: "No data yet. Upload an Excel file to get started."
 - Accepts `.xlsx` and `.xls` files.
 - Multiple files can be selected at once.
 
-### Step 2: Preview
+### Step 2: Preview (standard files)
 
-After file(s) are selected, the app parses them and shows a preview **before** any data is written.
+After file(s) are selected, the app parses them. If all columns are recognized, a preview is shown **before** any data is written.
 
-For each file, show:
-- Filename
-- Detected sheets (each becomes an account)
+For each sheet card, the header shows an **`AccountSelector`** instead of a plain rename field:
+- A dropdown listing all existing accounts + "New account" option.
+- Selecting an existing account merges the sheet's data into that account.
+- Selecting "New account" reveals a text input (defaults to the sheet name) for the new account name.
+- The sheet name is matched to existing accounts on load — pre-selects a match when found.
 
-For each sheet, show:
-- Sheet name (= account name)
+Additional sheet details:
 - Number of rows detected
 - Date range (earliest → latest)
 - Sample rows (first 5 transactions): date, description, category, amount
-- If the account already exists in the DB: "⚡ Account exists — X new rows will be added, Y duplicates will be skipped" (requires a quick duplicate check against existing data)
+- If the selected account already exists in the DB: "⚡ Account exists — X new rows will be added, Y duplicates will be skipped"
 
-A **"Confirm Import"** button at the bottom. Disabled until at least one file is parsed.
+A **"Confirm Import"** button at the bottom. Disabled until at least one sheet is selected.
 
-### Step 3: Import Execution
+### Step 2b: Column Mapping (non-standard files)
+
+If any sheet contains columns not recognized by the built-in Hebrew mapping, the Column Mapping step is shown **instead of** the normal preview.
+
+Each sheet section shows:
+- An **`AccountSelector`** (same as in the preview step) to choose existing vs new account.
+- If the sheet has unrecognized columns: a `MappingTable` for mapping source columns to target fields.
+  - Known columns (matching built-in Hebrew headers) are pre-filled automatically.
+  - Stored mappings from a previous import of the same account are pre-filled.
+- If all columns are recognized: "All columns recognised — no mapping needed." message.
+
+A **"Confirm & Import"** button is disabled until every unrecognized column in every sheet has a target field assigned.
 
 On confirm:
+- Account overrides and column mappings are sent to `executeImport`.
+- Column mappings are persisted to `account_column_mapping` (keyed by effective account name).
+- The normal preview step is **skipped** — import executes immediately.
+- DB status panel is **hidden** during this step.
+
+### Step 3: Category Review
+
+After import, ALL imported transactions are shown for review:
+- "Auto-categorized" section: transactions matched by `description_category_map`.
+- "Uncategorized" section: transactions with no category.
+- Each row has an editable category selector. Changes here do NOT update the mapping table.
+- "Save & Continue" applies overrides and navigates to Summary.
+
+### Step 4: Import Execution
+
+On confirm (Step 2 or Step 2b):
 1. Create accounts that don't exist yet.
-2. Create categories that don't exist yet (from "קטגוריה" column).
+2. Create categories that don't exist yet (from "קטגוריה" column, or mapped `category` field).
 3. Insert transactions, skipping duplicates.
-4. Log the import in `import_logs`.
+4. Auto-categorize via `description_category_map`.
+5. Log the import in `import_logs`.
 
 Show a progress indicator during import (can be simple — "Importing sheet 1/3...").
 
-### Step 4: Import Summary
+### Step 5: Import Summary
 
 After import completes, show:
 
@@ -126,12 +155,16 @@ Duplicates are skipped silently — counted in the summary but not flagged as er
 
 ## Components Used
 
-| Component        | Purpose                                          |
-|------------------|--------------------------------------------------|
-| `DbStatusTable`  | Shows current DB state (account, count, date)    |
-| `ImportPreview`  | Per-file/sheet preview with sample rows           |
-| `ImportSummary`  | Post-import results table                         |
-| `AmountDisplay`  | Format amounts in preview sample rows             |
+| Component             | Purpose                                                      |
+|-----------------------|--------------------------------------------------------------|
+| `DbStatusTable`       | Shows current DB state (account, count, date)                |
+| `ImportPreview`       | Per-file/sheet preview with sample rows                      |
+| `AccountSelector`     | Dropdown of existing accounts + "New account" + name input  |
+| `ColumnMappingStep`   | Per-sheet account selector + column mapper (all valid sheets)|
+| `CategoryReview`      | Post-import transaction review with category selectors       |
+| `ImportSummary`       | Post-import results table                                    |
+| `AmountDisplay`       | Format amounts in preview sample rows                        |
+| `MappingTable`        | Shared Source Column → Maps To table used inside `ColumnMappingStep` |
 
 Note: `DbPicker` is **not** on this page. Database management (create, switch, rename, delete) lives on the Databases page (`/settings/databases`).
 
@@ -139,12 +172,15 @@ Note: `DbPicker` is **not** on this page. Database management (create, switch, r
 
 ## API Endpoints
 
-| Method | Endpoint                  | Description                              |
-|--------|---------------------------|------------------------------------------|
-| GET    | `/api/import/status`      | Returns per-account transaction count and latest date. Optional `?filename=` param to query a specific DB without switching. |
-| POST   | `/api/import/preview`     | Parses uploaded file(s), returns preview data |
-| POST   | `/api/import/execute`     | Executes import, returns summary         |
-| DELETE | `/api/import/reset`       | Clears all data (for override flow)      |
+| Method | Endpoint                        | Description                              |
+|--------|---------------------------------|------------------------------------------|
+| GET    | `/api/import/status`            | Returns per-account transaction count and latest date. Optional `?filename=` param to query a specific DB without switching. |
+| POST   | `/api/import/preview`           | Parses uploaded file(s), returns preview data. Response includes `unknownColumns` and `storedColumnMapping` per sheet when non-standard columns are detected. |
+| POST   | `/api/import/execute`           | Executes import. Accepts optional `columnMapping` in body. Returns summary + `transactionsForReview`. |
+| DELETE | `/api/import/reset`             | Clears all data (for override flow)      |
+| GET    | `/api/column-mapping/:account`  | Returns stored column mapping for an account |
+| POST   | `/api/column-mapping/:account`  | Saves column mapping entries for an account |
+| DELETE | `/api/column-mapping/:account`  | Removes all column mappings for an account |
 
 ---
 

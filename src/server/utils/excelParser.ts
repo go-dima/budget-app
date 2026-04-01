@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { JSDOM } from 'jsdom';
 
 // Hebrew column name to field mapping
 export const COLUMN_MAPPING: Record<string, string> = {
@@ -36,11 +37,11 @@ const ENGLISH_MONTHS: Record<string, number> = {
 export function parseDate(dateValue: unknown): string | null {
   if (dateValue == null) return null;
 
-  // Excel serial number
+  // Excel serial number — use UTC epoch to avoid timezone drift
   if (typeof dateValue === 'number') {
-    const excelEpoch = new Date(1899, 11, 30);
-    const d = new Date(excelEpoch.getTime() + dateValue * 86400000);
-    if (!isNaN(d.getTime())) return toIso(d);
+    const ms = Date.UTC(1899, 11, 30) + dateValue * 86400000;
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) return toIsoUtc(d);
   }
 
   // JS Date object
@@ -76,10 +77,19 @@ export function parseDate(dateValue: unknown): string | null {
   return null;
 }
 
+/** Local-time ISO — for dates constructed from string components (new Date(y,m,d)) */
 function toIso(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** UTC ISO — for dates derived from Excel serial numbers (already in UTC) */
+function toIsoUtc(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
@@ -105,8 +115,38 @@ export interface ParsedTransaction {
   balanceAgorot: number;
 }
 
-export function parseSheet(sheet: XLSX.WorkSheet): ParsedTransaction[] {
+/**
+ * Scans the first 20 rows for a candidate header row (first row with 2+ non-numeric
+ * text cells) and partitions its cells into known (in COLUMN_MAPPING) and unknown.
+ * Returns knownFields = the internal field names the known columns map to.
+ */
+export function detectColumns(sheet: XLSX.WorkSheet): {
+  known: string[];
+  unknown: string[];
+  knownFields: string[];
+} {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true }) as unknown[][];
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const row = rows[i] ?? [];
+    const cells = row
+      .filter(c => c != null)
+      .map(c => String(c).trim())
+      .filter(s => s.length > 0 && isNaN(Number(s)));
+    if (cells.length >= 2) {
+      const known = cells.filter(c => c in COLUMN_MAPPING);
+      const unknown = cells.filter(c => !(c in COLUMN_MAPPING));
+      const knownFields = known.map(c => COLUMN_MAPPING[c]!);
+      return { known, unknown, knownFields };
+    }
+  }
+  return { known: [], unknown: [], knownFields: [] };
+}
+
+export function parseSheet(sheet: XLSX.WorkSheet, customMap?: Record<string, string>): ParsedTransaction[] {
+  const effectiveMap = customMap ?? COLUMN_MAPPING;
+  // raw: false so date cells come back as formatted strings (e.g. "3/10/25") rather than
+  // Excel serial integers — lets parseDate() interpret them as DD/MM/YY correctly.
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' }) as unknown[][];
   if (!rows || rows.length === 0) return [];
 
   // Find header row
@@ -120,8 +160,8 @@ export function parseSheet(sheet: XLSX.WorkSheet): ParsedTransaction[] {
       const cell = row[col];
       if (cell == null) continue;
       const cellStr = String(cell).trim();
-      if (cellStr in COLUMN_MAPPING) {
-        columnIndices.set(col, COLUMN_MAPPING[cellStr]!);
+      if (cellStr in effectiveMap) {
+        columnIndices.set(col, effectiveMap[cellStr]!);
       }
     }
     if (columnIndices.size > 0) {
@@ -162,7 +202,7 @@ export function parseSheet(sheet: XLSX.WorkSheet): ParsedTransaction[] {
       date: txn.date,
       description: txn.description as string,
       paymentMethod: ((txn as Record<string, unknown>)['payment_method'] as string | null) ?? null,
-      category: (txn.category as string | null) ?? 'לא מסווג',
+      category: (txn.category as string | null) ?? '',
       details: (txn.details as string | null) ?? null,
       reference: (txn.reference as string | null) ?? null,
       expenseAgorot: parseAmount(txn.expense),
@@ -174,17 +214,131 @@ export function parseSheet(sheet: XLSX.WorkSheet): ParsedTransaction[] {
   return result;
 }
 
+// ── HTML-as-XLS support ───────────────────────────────────────────────────────
+
+/** Returns true if the buffer is an HTML file (bank XLS exports disguised as .xls). */
+export function isHtmlFile(buffer: Buffer): boolean {
+  const head = buffer.slice(0, 10).toString('utf8').replace(/^\uFEFF/, '').trimStart();
+  return head.startsWith('<');
+}
+
+/**
+ * Parses an HTML-as-XLS file using jsdom.
+ * Finds the table whose header row has the most COLUMN_MAPPING matches and
+ * returns its rows as clean text arrays keyed under 'Sheet1'.
+ */
+export function extractHtmlSheets(buffer: Buffer): Record<string, string[][]> {
+  const content = buffer.toString('utf8');
+  const dom = new JSDOM(content);
+  const allTables = Array.from(dom.window.document.querySelectorAll('table'));
+  const knownCols = new Set(Object.keys(COLUMN_MAPPING));
+
+  let bestRows: string[][] = [];
+  let bestScore = 0;
+
+  for (const table of allTables) {
+    const rows: string[][] = [];
+    for (const tr of table.querySelectorAll('tr')) {
+      const cells = Array.from(tr.querySelectorAll(':scope > td, :scope > th')).map(
+        td => (td.textContent ?? '').replace(/[\u200F\u200E\u00AD\u00A0]/g, ' ').replace(/\s+/g, ' ').trim()
+      );
+      if (cells.some(c => c)) rows.push(cells);
+    }
+    // Score by known Hebrew column names in first 5 rows
+    for (const row of rows.slice(0, 5)) {
+      const score = row.filter(c => knownCols.has(c)).length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestRows = rows;
+      }
+    }
+  }
+
+  return bestScore >= 1 ? { Sheet1: bestRows } : {};
+}
+
+/**
+ * Scans rows (as string arrays) from the top and returns the index of the
+ * first row that has 2+ non-empty cells and at least 1 cell in COLUMN_MAPPING.
+ */
+export function detectHeaderRow(rows: string[][]): number {
+  const knownCols = new Set(Object.keys(COLUMN_MAPPING));
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] ?? [];
+    const nonEmpty = row.map(c => c.trim()).filter(Boolean);
+    if (nonEmpty.length >= 2 && nonEmpty.some(c => knownCols.has(c))) return i;
+  }
+  return 0;
+}
+
+/**
+ * Parses transactions from a pre-extracted string row array (HTML or otherwise).
+ * headerRowIdx is the 0-based index of the row that contains column headers.
+ */
+export function parseRawRows(rows: string[][], headerRowIdx: number, customMap?: Record<string, string>): ParsedTransaction[] {
+  const effectiveMap = customMap ?? COLUMN_MAPPING;
+  const headerRow = rows[headerRowIdx];
+  if (!headerRow) return [];
+
+  const columnIndices = new Map<number, string>();
+  for (let col = 0; col < headerRow.length; col++) {
+    const cell = (headerRow[col] ?? '').trim();
+    if (cell in effectiveMap) columnIndices.set(col, effectiveMap[cell]!);
+  }
+  if (columnIndices.size === 0) return [];
+
+  const result: ParsedTransaction[] = [];
+  for (let i = headerRowIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => !c)) continue;
+
+    const txn: Partial<ParsedTransaction & { expense: unknown; income: unknown; balance: unknown }> = {};
+
+    for (const [col, field] of columnIndices) {
+      const val = row[col] ?? null;
+      if (field === 'date')           { txn.date = parseDate(val) ?? undefined; }
+      else if (field === 'expense')   { txn.expense = val; }
+      else if (field === 'income')    { txn.income  = val; }
+      else if (field === 'balance')   { txn.balance = val; }
+      else { (txn as Record<string, string | null>)[field] = val ? String(val).trim() : null; }
+    }
+
+    if (!txn.date || !txn.description) continue;
+
+    result.push({
+      date: txn.date,
+      description: txn.description as string,
+      paymentMethod: ((txn as Record<string, unknown>)['payment_method'] as string | null) ?? null,
+      category: (txn.category as string | null) ?? '',
+      details: (txn.details as string | null) ?? null,
+      reference: (txn.reference as string | null) ?? null,
+      expenseAgorot: parseAmount(txn.expense),
+      incomeAgorot:  parseAmount(txn.income),
+      balanceAgorot: parseAmount(txn.balance),
+    });
+  }
+  return result;
+}
+
 export function parseExcelFile(buffer: Buffer): Record<string, ParsedTransaction[]> {
+  if (isHtmlFile(buffer)) {
+    const htmlSheets = extractHtmlSheets(buffer);
+    const result: Record<string, ParsedTransaction[]> = {};
+    for (const [name, rows] of Object.entries(htmlSheets)) {
+      const txns = parseRawRows(rows, detectHeaderRow(rows));
+      if (txns.length > 0) result[name] = txns;
+    }
+    return result;
+  }
+
   const workbook = XLSX.read(buffer, { type: 'buffer' });
   const result: Record<string, ParsedTransaction[]> = {};
-
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
     const txns = parseSheet(sheet);
     if (txns.length > 0) result[sheetName] = txns;
   }
-
   return result;
 }
 
@@ -202,17 +356,25 @@ export interface SheetMeta {
   error: string | null;
 }
 
-export function getSheetMeta(buffer: Buffer, sheetName: string): SheetMeta {
+export function getSheetMeta(buffer: Buffer, sheetName: string, customMap?: Record<string, string>, headerRowIdx?: number): SheetMeta {
   try {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    if (!workbook.SheetNames.includes(sheetName)) {
-      return { sheetName, rowCount: 0, dateRange: null, sampleRows: [], error: `Sheet "${sheetName}" not found` };
+    let txns: ParsedTransaction[];
+
+    if (isHtmlFile(buffer)) {
+      const htmlSheets = extractHtmlSheets(buffer);
+      const rows = htmlSheets[sheetName];
+      if (!rows) return { sheetName, rowCount: 0, dateRange: null, sampleRows: [], error: `Sheet "${sheetName}" not found` };
+      const idx = headerRowIdx ?? detectHeaderRow(rows);
+      txns = parseRawRows(rows, idx, customMap);
+    } else {
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      if (!workbook.SheetNames.includes(sheetName)) {
+        return { sheetName, rowCount: 0, dateRange: null, sampleRows: [], error: `Sheet "${sheetName}" not found` };
+      }
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) return { sheetName, rowCount: 0, dateRange: null, sampleRows: [], error: 'Empty sheet' };
+      txns = parseSheet(sheet, customMap);
     }
-
-    const sheet = workbook.Sheets[sheetName];
-    if (!sheet) return { sheetName, rowCount: 0, dateRange: null, sampleRows: [], error: 'Empty sheet' };
-
-    const txns = parseSheet(sheet);
 
     if (txns.length === 0) {
       return { sheetName, rowCount: 0, dateRange: null, sampleRows: [], error: null };

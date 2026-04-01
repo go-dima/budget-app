@@ -1,24 +1,19 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Button, Spin, Table, Typography, message } from 'antd';
+import { useCallback, useMemo } from 'react';
+import { Button, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { categoryMappingApi } from '../httpClient/client.js';
 import { useCategoryMapping } from '../hooks/useCategoryMapping.js';
 import { useCategories } from '../hooks/useCategories.js';
-import { PageContainer } from '../components/PageContainer/PageContainer.js';
-import { PageHeader } from '../components/PageHeader/PageHeader.js';
-import { AccountTabs } from '../components/AccountTabs/AccountTabs.js';
+import { MappingPage } from '../components/MappingPage/MappingPage.js';
 import { SuggestedChips } from '../components/SuggestedChips/SuggestedChips.js';
 import { MappingSelectCell } from '../components/MappingSelectCell/MappingSelectCell.js';
-import { MappingToolbar } from '../components/MappingToolbar/MappingToolbar.js';
 import type { CategoryMapping, Category } from '../../shared/types.js';
 
 export function CategoryMappingPage() {
   const { data, isLoading, error, reload } = useCategoryMapping();
   const { data: categories } = useCategories();
-  const [recalculating, setRecalculating] = useState(false);
-  const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
   const navigateToSearch = useCallback((description: string) => {
@@ -44,22 +39,6 @@ export function CategoryMappingPage() {
     await categoryMappingApi.delete(account, description);
     reload();
   }, [reload]);
-
-  const handleAddRow = useCallback(async (account: string, description: string, categoryId: string) => {
-    await categoryMappingApi.setPreferred(account, description, categoryId);
-    reload();
-  }, [reload]);
-
-  async function handleRecalculate() {
-    setRecalculating(true);
-    try {
-      const result = await categoryMappingApi.recalculate();
-      message.success(`Mapping recalculated: ${result.updated} updated, ${result.conflicts} without preferred, ${result.noops} no-ops`);
-      reload();
-    } finally {
-      setRecalculating(false);
-    }
-  }
 
   const tableColumns = useMemo<ColumnsType<CategoryMapping>>(() => [
     {
@@ -111,63 +90,21 @@ export function CategoryMappingPage() {
     },
   ], [categoryOptions, navigateToSearch, handleSetPreferred, handleRemoveSuggested, handleDelete]);
 
-  if (isLoading) {
-    return (
-      <PageContainer>
-        <Typography.Title level={2}>Category Mapping</Typography.Title>
-        <Spin style={{ display: 'block', padding: 48 }} />
-      </PageContainer>
-    );
-  }
-
-  if (error) {
-    return (
-      <PageContainer>
-        <Typography.Title level={2}>Category Mapping</Typography.Title>
-        <Alert type="error" title={error.message} />
-      </PageContainer>
-    );
-  }
-
-  const accounts = Array.from(new Set(data.map(m => m.account))).sort();
-  const lowerSearch = search.toLowerCase();
-
   return (
-    <PageContainer>
-      <PageHeader title="Category Mapping">
-        <Button type="default" loading={recalculating} onClick={handleRecalculate}>
-          Re-calculate
-        </Button>
-      </PageHeader>
-      <AccountTabs
-        accounts={accounts}
-        renderContent={(account) => {
-          const accountData = data.filter(m => m.account === account);
-          const filtered = lowerSearch
-            ? accountData.filter(m => m.description.toLowerCase().includes(lowerSearch))
-            : accountData;
-          return (
-            <>
-              <MappingToolbar
-                search={search}
-                onSearchChange={setSearch}
-                descriptionSuggestions={accountData.map(m => m.description)}
-                valueOptions={categoryOptions}
-                valuePlaceholder="Category"
-                onAdd={(desc, catId) => handleAddRow(account, desc, catId)}
-              />
-              <Table<CategoryMapping>
-                columns={tableColumns}
-                dataSource={filtered}
-                rowKey={r => `${r.account}::${r.description}`}
-                locale={{ emptyText: 'No mappings for this account yet.' }}
-                pagination={{ pageSize: 20 }}
-                rowClassName={r => r.preferredCategoryId === null ? 'mapping-row-no-preferred' : ''}
-              />
-            </>
-          );
-        }}
-      />
-    </PageContainer>
+    <MappingPage
+      title="Category Mapping"
+      data={data}
+      isLoading={isLoading}
+      error={error}
+      onRecalculate={categoryMappingApi.recalculate}
+      tableColumns={tableColumns}
+      rowClassName={r => r.preferredCategoryId === null ? 'mapping-row-no-preferred' : ''}
+      getValueOptions={() => categoryOptions}
+      valuePlaceholder="Category"
+      onAdd={async (account, desc, catId) => {
+        await categoryMappingApi.setPreferred(account, desc, catId);
+        reload();
+      }}
+    />
   );
 }

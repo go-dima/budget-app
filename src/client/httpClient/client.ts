@@ -4,6 +4,7 @@ import type {
   MonthlyReportRow, YearlyReportRow, CategoryReportRow, MonthDetailRow,
   ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse,
   TransactionFilters, DbEntry, CategoryMapping, RecalculateResult, PaymentMapping,
+  ColumnMappingEntry, ColumnMappingMap,
 } from '../../shared/types.js';
 
 export class ApiError extends Error {
@@ -53,6 +54,18 @@ export const transactionsApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ updates }),
+    }),
+  bulkSetPaymentMethod: (updates: { id: string; paymentMethod: string }[]) =>
+    request<void>('/api/transactions/bulk-payment-method', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates }),
+    }),
+  bulkDelete: (ids: string[]) =>
+    request<void>('/api/transactions/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
     }),
 };
 
@@ -142,6 +155,19 @@ export const paymentMappingApi = {
     ),
 };
 
+export const columnMappingApi = {
+  getAll: () => request<Record<string, ColumnMappingEntry[]>>('/api/column-mapping'),
+  getForAccount: (account: string) => request<ColumnMappingEntry[]>(`/api/column-mapping/${enc(account)}`),
+  save: (account: string, entries: ColumnMappingEntry[]) =>
+    request<{ saved: number }>(`/api/column-mapping/${enc(account)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries }),
+    }),
+  delete: (account: string) =>
+    request<{ deleted: boolean }>(`/api/column-mapping/${enc(account)}`, { method: 'DELETE' }),
+};
+
 export const importApi = {
   getStatus: (filename?: string) =>
     request<ImportStatusResponse>(filename ? `/api/import/status?filename=${encodeURIComponent(filename)}` : '/api/import/status'),
@@ -150,11 +176,11 @@ export const importApi = {
     form.append('file', file);
     return request<ImportPreviewResponse>('/api/import/preview', { method: 'POST', body: form });
   },
-  execute: (fileId: string, filename: string, sheetNameOverrides?: Record<string, string>, selectedSheets?: string[]) =>
+  execute: (fileId: string, filename: string, sheetNameOverrides?: Record<string, string>, selectedSheets?: string[], columnMapping?: ColumnMappingMap, headerRowOverrides?: Record<string, number>) =>
     request<ImportExecuteResponse>('/api/import/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId, filename, sheetNameOverrides, selectedSheets }),
+      body: JSON.stringify({ fileId, filename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides }),
     }),
   reset: () => request<{ success: boolean }>('/api/import/reset', { method: 'DELETE' }),
 };

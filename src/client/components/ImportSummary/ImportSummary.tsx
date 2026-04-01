@@ -30,7 +30,7 @@ export function ImportSummary({ result, onGoToOverview, onImportMore }: ImportSu
       <Table
         dataSource={[...result.results, ...footerData]}
         columns={columns}
-        rowKey={(r, i) => `${r.accountName}-${i}`}
+        rowKey={r => r.accountName}
         pagination={false}
         size="small"
       />

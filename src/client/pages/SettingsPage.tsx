@@ -15,6 +15,7 @@ const SETTINGS_MENU_ITEMS = [
       { key: '/settings/categories', label: 'Hidden Categories' },
       { key: '/settings/mapping', label: 'Category Mapping' },
       { key: '/settings/payment-mapping', label: 'Payment Mapping' },
+      { key: '/settings/column-mapping', label: 'Column Mapping' },
     ],
   },
   {

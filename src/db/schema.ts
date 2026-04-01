@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, unique } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, unique, primaryKey } from 'drizzle-orm/sqlite-core';
 
 export const accounts = sqliteTable('accounts', {
   id: text('id').primaryKey(),
@@ -58,6 +58,18 @@ export const descriptionPaymentMethodMap = sqliteTable(
   },
   (t) => ({
     uniq: unique().on(t.account, t.description),
+  })
+);
+
+export const accountColumnMapping = sqliteTable(
+  'account_column_mapping',
+  {
+    account: text('account').notNull(),
+    sourceColumn: text('source_column').notNull(),
+    targetField: text('target_field').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.account, t.sourceColumn] }),
   })
 );
 

@@ -1,19 +1,17 @@
 import { useMemo, useState } from 'react';
-import { Button, Table, Tag, Typography } from 'antd';
+import { AutoComplete, Button, Table, Tag, Typography } from 'antd';
 import type { DefaultOptionType } from 'antd/es/select';
 import type { ColumnsType } from 'antd/es/table';
 import type { Category, ImportedTransactionReview } from '../../../shared/types.js';
 import { EmptyState } from '../EmptyState/EmptyState.js';
 import { CategorySelect } from '../CategorySelect/CategorySelect.js';
-import { dateCol as makeDateCol, descriptionColSimple as makeDescCol, amountCol as makeAmountCol } from '../tableColumns.js';
+import { AmountDisplay } from '../AmountDisplay/AmountDisplay.js';
+import { dateCol as makeDateCol, descriptionColSimple as makeDescCol } from '../tableColumns.js';
 import styles from './CategoryReview.module.css';
 
 const { Title, Text } = Typography;
 
-type FlatOption = { value: string; label: string };
-type GroupedOption = { label: string; options: FlatOption[] };
-
-function buildOptions(
+function buildCategoryOptions(
   preferredCategoryId: string | null,
   suggestedCategoryIds: string[],
   allCategories: Category[],
@@ -22,7 +20,6 @@ function buildOptions(
     ...(preferredCategoryId ? [preferredCategoryId] : []),
     ...suggestedCategoryIds,
   ]);
-
   const preferred: DefaultOptionType[] = preferredCategoryId
     ? [{ value: preferredCategoryId, label: allCategories.find(c => c.id === preferredCategoryId)?.name ?? preferredCategoryId }]
     : [];
@@ -33,158 +30,175 @@ function buildOptions(
     .map(c => ({ value: c.id, label: c.name }));
 
   if (preferred.length === 0 && suggested.length === 0) return rest;
-
   return [
-    ...(preferred.length > 0 ? [{ label: 'Preferred', options: preferred } as GroupedOption] : []),
-    ...(suggested.length > 0 ? [{ label: 'Suggested', options: suggested } as GroupedOption] : []),
-    { label: 'All', options: rest } as GroupedOption,
+    ...(preferred.length > 0 ? [{ label: 'Preferred', options: preferred }] : []),
+    ...(suggested.length > 0 ? [{ label: 'Suggested', options: suggested }] : []),
+    { label: 'All', options: rest },
   ];
 }
 
 interface CategoryReviewProps {
   transactions: ImportedTransactionReview[];
   categories: Category[];
-  onSave: (overrides: Record<string, string | null>) => void;
+  onSave: (
+    categoryOverrides: Record<string, string | null>,
+    pmOverrides: Record<string, string>,
+    skippedIds: string[],
+  ) => void;
   isLoading: boolean;
 }
 
 export function CategoryReview({ transactions, categories, onSave, isLoading }: CategoryReviewProps) {
-  const [overrides, setOverrides] = useState<Record<string, string | null>>({});
-
-  const categoryOptions = useMemo(() => categories.map(c => ({ value: c.id, label: c.name })), [categories]);
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string | null>>({});
+  const [pmOverrides, setPmOverrides] = useState<Record<string, string>>({});
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
   function getEffectiveCategoryId(row: ImportedTransactionReview): string | null {
-    if (row.id in overrides) return overrides[row.id];
+    if (row.id in categoryOverrides) return categoryOverrides[row.id]!;
     return row.categoryId;
   }
 
   function getEffectiveCategoryName(row: ImportedTransactionReview): string | null {
-    if (row.id in overrides) {
-      const id = overrides[row.id];
-      if (id === null) return null;
+    if (row.id in categoryOverrides) {
+      const id = categoryOverrides[row.id];
+      if (!id) return null;
       return categories.find(c => c.id === id)?.name ?? null;
     }
     return row.categoryName;
   }
 
-  function handleClear(id: string) {
-    setOverrides(prev => ({ ...prev, [id]: null }));
+  function getEffectivePm(row: ImportedTransactionReview): string {
+    return pmOverrides[row.id] ?? row.paymentMethod ?? '';
   }
 
-  function handleAssign(id: string, categoryId: string | null) {
-    setOverrides(prev => ({ ...prev, [id]: categoryId }));
+  const rowCategoryOptions = useMemo(() => new Map(
+    transactions.map(row => [row.id, buildCategoryOptions(row.preferredCategoryId, row.suggestedCategoryIds, categories)])
+  ), [transactions, categories]);
+
+  const allCategoryOptions = useMemo(() => categories.map(c => ({ value: c.id, label: c.name })), [categories]);
+
+  const pmSuggestions = useMemo(() => {
+    const pmSet = new Set<string>();
+    for (const row of transactions) {
+      if (row.preferredPaymentMethod) pmSet.add(row.preferredPaymentMethod);
+      for (const pm of row.suggestedPaymentMethods) pmSet.add(pm);
+      if (row.paymentMethod) pmSet.add(row.paymentMethod);
+    }
+    return Array.from(pmSet).map(v => ({ value: v }));
+  }, [transactions]);
+
+  function handleSave() {
+    onSave(categoryOverrides, pmOverrides, Array.from(skipped));
   }
 
-  // Memoized per-row grouped options for ALL rows (stable references to avoid rc-select loop).
-  // Covers both uncategorized rows (always show Select) and auto-categorized rows that the user clears.
-  const rowOptions = useMemo(() => {
-    return new Map(
-      transactions.map(row => [
-        row.id,
-        buildOptions(row.preferredCategoryId, row.suggestedCategoryIds, categories),
-      ])
-    );
-  }, [transactions, categories]);
+  function toggleSkip(id: string) {
+    setSkipped(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
-  // Split is based on the initial autoAssigned flag from props so rows don't jump
-  // between sections as the user makes category overrides.
-  const autoCategorized = transactions.filter(row => row.autoAssigned);
-  const uncategorized = transactions.filter(row => !row.autoAssigned);
-
-  const dateColDef = makeDateCol<ImportedTransactionReview>();
-  const descColDef = makeDescCol<ImportedTransactionReview>();
-  const amountColDef = makeAmountCol<ImportedTransactionReview>();
-
-  const autoCategoryCol: ColumnsType<ImportedTransactionReview>[number] = {
-    title: 'Category',
-    key: 'category',
-    width: 200,
-    render: (_: unknown, row: ImportedTransactionReview) => {
-      const effectiveId = getEffectiveCategoryId(row);
-      // If cleared by the user, show a Select so they can re-assign
-      if (row.id in overrides && effectiveId === null) {
+  const columns = useMemo<ColumnsType<ImportedTransactionReview>>(() => [
+    makeDateCol<ImportedTransactionReview>(),
+    makeDescCol<ImportedTransactionReview>(),
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 110,
+      render: (v: number) => <AmountDisplay amount={v} />,
+    },
+    {
+      title: 'Category',
+      key: 'category',
+      width: 200,
+      render: (_: unknown, row: ImportedTransactionReview) => {
+        if (skipped.has(row.id)) return <Text type="secondary">—</Text>;
+        const effectiveId = getEffectiveCategoryId(row);
+        if (row.autoAssigned && !(row.id in categoryOverrides)) {
+          const name = getEffectiveCategoryName(row);
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {name ? <Tag color="blue">{name}</Tag> : <Text type="secondary">—</Text>}
+              <Button size="small" type="text" onClick={() => setCategoryOverrides(p => ({ ...p, [row.id]: null }))}>✕</Button>
+            </div>
+          );
+        }
         return (
           <CategorySelect
-            value={undefined}
-            options={rowOptions.get(row.id) ?? categoryOptions}
-            onChange={(val) => handleAssign(row.id, val ?? null)}
+            value={effectiveId}
+            options={rowCategoryOptions.get(row.id) ?? allCategoryOptions}
+            onChange={val => setCategoryOverrides(p => ({ ...p, [row.id]: val ?? null }))}
+            onClear={() => setCategoryOverrides(p => ({ ...p, [row.id]: null }))}
           />
         );
-      }
-      const name = getEffectiveCategoryName(row);
-      return name ? <Tag color="blue">{name}</Tag> : <Text type="secondary">—</Text>;
+      },
     },
-  };
-
-  const clearCol: ColumnsType<ImportedTransactionReview>[number] = {
-    title: '',
-    key: 'clear',
-    width: 80,
-    render: (_: unknown, row: ImportedTransactionReview) => {
-      const effectiveId = getEffectiveCategoryId(row);
-      if (effectiveId === null) return null;
-      return <Button size="small" onClick={() => handleClear(row.id)}>Clear</Button>;
+    {
+      title: 'Payment Method',
+      key: 'paymentMethod',
+      width: 160,
+      render: (_: unknown, row: ImportedTransactionReview) => {
+        if (skipped.has(row.id)) return <Text type="secondary">—</Text>;
+        return (
+          <AutoComplete
+            value={getEffectivePm(row)}
+            options={pmSuggestions}
+            onChange={val => setPmOverrides(p => ({ ...p, [row.id]: val }))}
+            style={{ width: '100%' }}
+            size="small"
+            allowClear
+          />
+        );
+      },
     },
-  };
-
-  const uncatCategoryCol: ColumnsType<ImportedTransactionReview>[number] = {
-    title: 'Category',
-    key: 'category',
-    width: 200,
-    render: (_: unknown, row: ImportedTransactionReview) => {
-      const effectiveId = getEffectiveCategoryId(row);
-      return (
-        <CategorySelect
-          value={effectiveId}
-          options={rowOptions.get(row.id) ?? categoryOptions}
-          onChange={(val) => handleAssign(row.id, val ?? null)}
-          onClear={() => handleClear(row.id)}
-        />
-      );
+    {
+      title: '',
+      key: 'skip',
+      width: 70,
+      render: (_: unknown, row: ImportedTransactionReview) => (
+        <Button
+          size="small"
+          type={skipped.has(row.id) ? 'primary' : 'default'}
+          danger={!skipped.has(row.id)}
+          onClick={() => toggleSkip(row.id)}
+        >
+          {skipped.has(row.id) ? 'Undo' : 'Skip'}
+        </Button>
+      ),
     },
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [skipped, categoryOverrides, pmOverrides, rowCategoryOptions, allCategoryOptions, pmSuggestions]);
 
   if (transactions.length === 0) {
     return <EmptyState title="No transactions to review" />;
   }
 
+  const skippedCount = skipped.size;
+
   return (
     <div>
-      {autoCategorized.length > 0 && (
-        <div className={styles.section}>
-          <Title level={5}>Auto-categorized ({autoCategorized.length})</Title>
-          <Table<ImportedTransactionReview>
-            dataSource={autoCategorized}
-            rowKey="id"
-            columns={[dateColDef, descColDef, amountColDef, autoCategoryCol, clearCol]}
-            pagination={false}
-            size="small"
-          />
-        </div>
-      )}
-
-      {uncategorized.length > 0 && (
-        <div className={styles.section}>
-          <Title level={5}>Uncategorized ({uncategorized.length})</Title>
-          <Table<ImportedTransactionReview>
-            dataSource={uncategorized}
-            rowKey="id"
-            columns={[dateColDef, descColDef, amountColDef, uncatCategoryCol]}
-            pagination={false}
-            size="small"
-          />
-        </div>
-      )}
-
-      <div className={styles.saveRow}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <Title level={4} style={{ margin: 0 }}>Review Transactions</Title>
         <Button
           type="primary"
           loading={isLoading}
-          onClick={() => onSave(overrides)}
+          onClick={handleSave}
         >
-          Save &amp; Continue
+          {skippedCount > 0 ? `Save & Continue (skip ${skippedCount})` : 'Save & Continue'}
         </Button>
       </div>
+
+      <Table<ImportedTransactionReview>
+        dataSource={transactions}
+        rowKey="id"
+        columns={columns}
+        size="small"
+        pagination={{ pageSize: 50, showSizeChanger: false, current: currentPage, onChange: setCurrentPage }}
+        rowClassName={row => skipped.has(row.id) ? styles.skipped : ''}
+      />
     </div>
   );
 }

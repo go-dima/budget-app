@@ -3,6 +3,7 @@ import { Card, Col, Row, Statistic, Typography } from 'antd';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useTransactions } from '../hooks/useTransactions.js';
 import { useFilters } from '../contexts/FilterContext.js';
+import { transactionsApi } from '../httpClient/client.js';
 import { TransactionTable } from '../components/TransactionTable/TransactionTable.js';
 import { AmountDisplay } from '../components/AmountDisplay/AmountDisplay.js';
 import { EmptyState } from '../components/EmptyState/EmptyState.js';
@@ -66,7 +67,17 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
         }
       : undefined;
 
-  const { data, isLoading } = useTransactions(overrides);
+  const { data, isLoading, reload } = useTransactions(overrides);
+
+  async function handleCategoryChange(id: string, categoryId: string | null) {
+    await transactionsApi.bulkCategorize([{ id, categoryId }]);
+    reload();
+  }
+
+  async function handlePaymentMethodChange(id: string, paymentMethod: string) {
+    await transactionsApi.bulkSetPaymentMethod([{ id, paymentMethod }]);
+    reload();
+  }
 
   const isEmpty = !isLoading && data.total === 0 && !filters.search && pageCategoryIds.length === 0;
 
@@ -114,7 +125,12 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
           setSortBy(sortBy as TransactionFilters['sortBy']);
           setSortOrder(sortOrder);
         }}
-        onPageChange={(page, pageSize) => { setPage(page); setPageSize(pageSize); }}
+        onPageChange={(page, pageSize) => {
+          if (pageSize !== filters.pageSize) setPageSize(pageSize);
+          else setPage(page);
+        }}
+        onCategoryChange={handleCategoryChange}
+        onPaymentMethodChange={handlePaymentMethodChange}
       />
     </div>
   );

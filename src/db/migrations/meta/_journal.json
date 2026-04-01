@@ -36,6 +36,13 @@
       "when": 1774621532843,
       "tag": "0004_hard_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1774641246362,
+      "tag": "0005_silky_toxin",
+      "breakpoints": true
     }
   ]
 }

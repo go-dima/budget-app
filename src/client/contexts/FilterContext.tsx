@@ -88,7 +88,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
           .at(-1);
         if (latestDate) {
           const range = dateRangeFromAnchor(latestDate);
-          setFiltersState(prev => ({ ...prev, startDate: range.startDate, endDate: range.endDate }));
+          setFiltersState(prev => ({ ...prev, startDate: range.startDate, endDate: range.endDate, page: 1 }));
         }
       })
       .catch(() => {});

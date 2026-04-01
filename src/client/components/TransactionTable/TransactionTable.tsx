@@ -1,10 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Input, Select, Table, Tag } from 'antd';
-import type { ColumnsType, TablePaginationConfig } from 'antd/es/table/index.js';
+import { useEffect, useMemo, useRef, useState, memo } from 'react';
+import { AutoComplete, Input, Pagination, Select, Table, Tag } from 'antd';
+import type { ColumnsType } from 'antd/es/table/index.js';
 import type { SorterResult } from 'antd/es/table/interface.js';
 import type { Category, Transaction, TransactionFilters } from '../../../shared/types.js';
 import { amountCol, dateCol, descriptionCol } from '../tableColumns.js';
+import { CategorySelect } from '../CategorySelect/CategorySelect.js';
 import styles from './TransactionTable.module.css';
+
+const PaymentMethodCell = memo(function PaymentMethodCell({
+  row, pmOptions, onPaymentMethodChange,
+}: {
+  row: Transaction;
+  pmOptions: { value: string }[];
+  onPaymentMethodChange?: (id: string, paymentMethod: string) => void;
+}) {
+  const [value, setValue] = useState(row.paymentMethod ?? '');
+  useEffect(() => { setValue(row.paymentMethod ?? ''); }, [row.paymentMethod]);
+  return (
+    <AutoComplete
+      value={value}
+      options={pmOptions}
+      onChange={setValue}
+      onBlur={() => onPaymentMethodChange?.(row.id, value)}
+      style={{ width: '100%', minWidth: 120 }}
+      size="small"
+      allowClear
+    />
+  );
+});
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -19,12 +42,15 @@ interface TransactionTableProps {
   onSort: (sortBy: TransactionFilters['sortBy'], sortOrder: 'asc' | 'desc') => void;
   onSearch: (search: string) => void;
   initialSearch?: string;
+  onCategoryChange?: (id: string, categoryId: string | null) => void;
+  onPaymentMethodChange?: (id: string, paymentMethod: string) => void;
 }
 
 export function TransactionTable({
   transactions, total, page, pageSize, isLoading,
   allCategories, pageCategoryIds, onPageCategoryChange,
   onPageChange, onSort, onSearch, initialSearch,
+  onCategoryChange, onPaymentMethodChange,
 }: TransactionTableProps) {
   const [localSearch, setLocalSearch] = useState(initialSearch ?? '');
 
@@ -36,9 +62,13 @@ export function TransactionTable({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectRef = useRef<any>(null);
 
-  const visibleRows = localSearch
-    ? transactions.filter(t => t.description?.toLowerCase().includes(localSearch.toLowerCase()))
-    : transactions;
+  const visibleRows = transactions;
+
+  const pmOptions = useMemo(() =>
+    [...new Set(transactions.map(t => t.paymentMethod).filter(Boolean))]
+      .map(v => ({ value: v! })),
+    [transactions],
+  );
 
   // Include ALL categories so the Select can resolve label text for selected IDs.
   // Filter by search text only (not by already-selected) — Select handles that display natively.
@@ -68,21 +98,30 @@ export function TransactionTable({
     dateCol<Transaction>({ sorter: true, defaultSortOrder: 'descend' }),
     descriptionCol<Transaction>({ sorter: undefined }),
     {
-      title: 'Category', dataIndex: 'categoryName', key: 'category', sorter: true, width: 140,
-      render: v => v ? <span dir="rtl">{v}</span> : '—',
+      title: 'Category', key: 'category', sorter: true, width: 180,
+      render: (_: unknown, row: Transaction) => (
+        <CategorySelect
+          value={row.categoryId ?? null}
+          options={allCategories.map(c => ({ value: c.id, label: c.name }))}
+          onChange={val => onCategoryChange?.(row.id, val ?? null)}
+          onClear={() => onCategoryChange?.(row.id, null)}
+        />
+      ),
     },
     amountCol<Transaction>({ sorter: true, width: 130, fixed: 'right' }),
     { title: 'Account', dataIndex: 'accountName', key: 'account', sorter: true },
-    { title: 'Payment', dataIndex: 'paymentMethod', key: 'paymentMethod', render: v => v ?? '—' },
+    {
+      title: 'Payment', key: 'paymentMethod', width: 140,
+      render: (_: unknown, row: Transaction) => (
+        <PaymentMethodCell row={row} pmOptions={pmOptions} onPaymentMethodChange={onPaymentMethodChange} />
+      ),
+    },
   ];
 
-  function handleTableChange(pagination: TablePaginationConfig, _filters: Record<string, unknown>, sorter: SorterResult<Transaction> | SorterResult<Transaction>[]) {
+  function handleTableChange(_pagination: TablePaginationConfig, _filters: Record<string, unknown>, sorter: SorterResult<Transaction> | SorterResult<Transaction>[]) {
     const s = Array.isArray(sorter) ? sorter[0] : sorter;
     if (s?.columnKey) {
       onSort(s.columnKey as TransactionFilters['sortBy'], s.order === 'ascend' ? 'asc' : 'desc');
-    }
-    if (pagination.current && pagination.pageSize) {
-      onPageChange(pagination.current, pagination.pageSize);
     }
   }
 
@@ -127,9 +166,19 @@ export function TransactionTable({
         rowKey="id"
         loading={isLoading}
         scroll={{ x: 700 }}
-        pagination={{ current: page, pageSize, total, showSizeChanger: true, showTotal: t => `${t} transactions` }}
+        pagination={false}
         onChange={handleTableChange}
       />
+      <div className={styles.paginationBar}>
+        <Pagination
+          current={page}
+          pageSize={pageSize}
+          total={total}
+          showSizeChanger
+          showTotal={t => `${t} transactions`}
+          onChange={(p, ps) => onPageChange(p, ps)}
+        />
+      </div>
     </div>
   );
 }

@@ -45,4 +45,28 @@ router.post('/bulk-categorize', (req, res) => {
   }
 });
 
+router.post('/bulk-payment-method', (req, res) => {
+  try {
+    const { updates } = req.body as { updates?: unknown };
+    if (!Array.isArray(updates)) return res.status(400).json({ error: 'updates must be an array' });
+    const service = new TransactionService(dbManager.getDb());
+    service.bulkSetPaymentMethod(updates as { id: string; paymentMethod: string }[]);
+    res.json({ updated: updates.length });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+router.post('/bulk-delete', (req, res) => {
+  try {
+    const { ids } = req.body as { ids?: unknown };
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+    const service = new TransactionService(dbManager.getDb());
+    service.bulkDelete(ids as string[]);
+    res.json({ deleted: ids.length });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 export default router;

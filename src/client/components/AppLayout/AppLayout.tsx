@@ -9,9 +9,10 @@ import styles from './AppLayout.module.css';
 
 const { Sider, Content } = Layout;
 
-const LAYOUT_STYLE = { minHeight: '100vh' };
-const CONTENT_STYLE_IMPORT = { padding: 24, overflowY: 'auto' as const };
-const CONTENT_STYLE_MAIN = { padding: '24px 24px 24px 16px', overflowY: 'auto' as const };
+const LAYOUT_STYLE = { height: '100vh', overflow: 'hidden' as const };
+const INNER_LAYOUT_STYLE = { overflow: 'hidden' as const, flex: 1 };
+const CONTENT_STYLE_IMPORT = { padding: 24, overflowY: 'auto' as const, flex: 1 };
+const CONTENT_STYLE_MAIN = { padding: '24px 24px 24px 16px', overflowY: 'auto' as const, flex: 1 };
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -42,7 +43,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <Layout style={LAYOUT_STYLE}>
       <NavBar />
-      <Layout>
+      <Layout style={INNER_LAYOUT_STYLE}>
         {!isImportPage && (
           <>
             {/* Desktop sidebar */}

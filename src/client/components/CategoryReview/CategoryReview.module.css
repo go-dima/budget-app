@@ -1,9 +1,4 @@
-.section {
-  margin-bottom: 24px;
-}
-
-.saveRow {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
+.skipped td {
+  opacity: 0.4;
+  text-decoration: line-through;
 }

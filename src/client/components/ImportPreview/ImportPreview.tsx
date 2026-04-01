@@ -1,18 +1,23 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Checkbox, Input, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Table, Tag, Typography } from 'antd';
 import type { ImportPreviewResponse } from '../../../shared/types.js';
 import { amountCol, dateCol, descriptionColSimple } from '../tableColumns.js';
+import { AccountSelector } from '../AccountSelector/AccountSelector.js';
 
 const { Text } = Typography;
 
 interface ImportPreviewProps {
   preview: ImportPreviewResponse;
+  availableAccounts: string[];
   onConfirm: (sheetNameOverrides: Record<string, string>, selectedSheets: string[]) => void;
   isLoading: boolean;
 }
 
-export function ImportPreview({ preview, onConfirm, isLoading }: ImportPreviewProps) {
-  const [nameOverrides, setNameOverrides] = useState<Record<string, string>>({});
+export function ImportPreview({ preview, availableAccounts, onConfirm, isLoading }: ImportPreviewProps) {
+  // nameOverrides: sheetName → effective account name (defaults to sheet name)
+  const [nameOverrides, setNameOverrides] = useState<Record<string, string>>(
+    () => Object.fromEntries(preview.sheets.map(s => [s.sheetName, s.sheetName]))
+  );
 
   const validSheets = preview.sheets.filter(s => !s.error && s.rowCount > 0);
 
@@ -21,8 +26,8 @@ export function ImportPreview({ preview, onConfirm, isLoading }: ImportPreviewPr
     () => new Set(validSheets.filter(s => s.existingAccount !== null).map(s => s.sheetName))
   );
 
-  function handleNameChange(originalName: string, newName: string) {
-    setNameOverrides(prev => ({ ...prev, [originalName]: newName }));
+  function handleAccountChange(sheetName: string, accountName: string) {
+    setNameOverrides(prev => ({ ...prev, [sheetName]: accountName }));
   }
 
   function toggleSheet(sheetName: string, checked: boolean) {
@@ -35,9 +40,9 @@ export function ImportPreview({ preview, onConfirm, isLoading }: ImportPreviewPr
 
   function handleConfirm() {
     const overrides: Record<string, string> = {};
-    for (const [orig, renamed] of Object.entries(nameOverrides)) {
-      const trimmed = renamed.trim();
-      if (trimmed && trimmed !== orig) overrides[orig] = trimmed;
+    for (const [orig, name] of Object.entries(nameOverrides)) {
+      const trimmed = name.trim();
+      if (trimmed) overrides[orig] = trimmed;
     }
     onConfirm(overrides, Array.from(selectedSheets));
   }
@@ -69,12 +74,11 @@ export function ImportPreview({ preview, onConfirm, isLoading }: ImportPreviewPr
                     onChange={e => toggleSheet(sheet.sheetName, e.target.checked)}
                   />
                 )}
-                <Input
-                  defaultValue={sheet.sheetName}
-                  onChange={e => handleNameChange(sheet.sheetName, e.target.value)}
-                  style={{ maxWidth: 300 }}
-                  dir="rtl"
+                <AccountSelector
+                  sheetName={sheet.sheetName}
+                  availableAccounts={availableAccounts}
                   disabled={!isValid || !isSelected}
+                  onChange={name => handleAccountChange(sheet.sheetName, name)}
                 />
               </div>
             }
@@ -98,7 +102,7 @@ export function ImportPreview({ preview, onConfirm, isLoading }: ImportPreviewPr
                 )}
                 <Table
                   dataSource={sheet.sampleRows}
-                  rowKey={(_, i) => String(i)}
+                  rowKey={r => `${r.date}-${r.description}`}
                   size="small"
                   pagination={false}
                   style={{ marginTop: 8 }}

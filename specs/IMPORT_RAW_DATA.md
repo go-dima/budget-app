@@ -5,6 +5,7 @@
 **Goal:** Allow importing Excel files whose column names don't match the app's known Hebrew bank format. When unknown columns are detected during preview, prompt the user to map each source column to a destination field. Persist that mapping per account so it pre-fills on future imports.
 
 **Architecture:** Add a `Column Mapping` step between `preview` and `importing` in the import flow. A new `account_column_mapping` table (keyed by account name + source column) stores the mapping. `excelParser.ts` gains a `detectColumns()` export and an optional `customMap` parameter in `parseSheet`/`getSheetMeta`. `ImportService.previewFile` reports unknown columns; `executeImport` accepts and persists a `ColumnMappingMap`.
+The mapping will be available to view in the settings panel, the user will be able to modify it if needed
 
 **Tech Stack:** Drizzle ORM (SQLite), Express, React, Ant Design 6, `createTestDb()` for service tests, Storybook for component stories. All shared types in `src/shared/types.ts`.
 

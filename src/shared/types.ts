@@ -171,6 +171,33 @@ export interface ImportPreviewSampleRow {
   amount: number; // agorot (signed)
 }
 
+// ── Column mapping types ──────────────────────────────────────────────────────
+
+export type ColumnMappingTarget =
+  | 'date' | 'description' | 'expense' | 'income' | 'balance'
+  | 'payment_method' | 'category' | 'details' | 'reference' | 'ignore';
+
+export const COLUMN_MAPPING_TARGETS: Array<{ value: ColumnMappingTarget; label: string }> = [
+  { value: 'date', label: 'Date' },
+  { value: 'description', label: 'Description' },
+  { value: 'expense', label: 'Expense' },
+  { value: 'income', label: 'Income' },
+  { value: 'balance', label: 'Balance' },
+  { value: 'payment_method', label: 'Payment Method' },
+  { value: 'category', label: 'Category' },
+  { value: 'details', label: 'Details' },
+  { value: 'reference', label: 'Reference' },
+  { value: 'ignore', label: 'Ignore' },
+];
+
+export interface ColumnMappingEntry {
+  sourceColumn: string;
+  targetField: ColumnMappingTarget;
+}
+
+// key = sheet name (= account name); value = user's column assignments for that sheet
+export type ColumnMappingMap = Record<string, ColumnMappingEntry[]>;
+
 export interface ImportPreviewSheet {
   sheetName: string;       // = account name
   rowCount: number;
@@ -182,6 +209,13 @@ export interface ImportPreviewSheet {
     duplicates: number;
   } | null;
   error: string | null;
+  // Non-null when the sheet has columns not in the built-in COLUMN_MAPPING that affect amounts
+  unknownColumns: string[] | null;
+  // Pre-filled from stored mapping if one exists for this account; null otherwise
+  storedColumnMapping: ColumnMappingEntry[] | null;
+  // Header row selection: non-null when extra rows precede the header (detectedHeaderRow > 0)
+  rawRows: string[][] | null;
+  detectedHeaderRow: number;   // 0-based index; 0 = header is the first row
 }
 
 export interface ImportPreviewResponse {
@@ -198,12 +232,16 @@ export interface ImportedTransactionReview {
   categoryId: string | null;
   categoryName: string | null;
   autoAssigned: boolean;
-  preferredCategoryId: string | null;   // from mapping (null if no mapping exists)
-  suggestedCategoryIds: string[];       // from mapping (empty if no mapping exists)
+  preferredCategoryId: string | null;
+  suggestedCategoryIds: string[];
+  paymentMethod: string | null;
+  preferredPaymentMethod: string | null;
+  suggestedPaymentMethods: string[];
 }
 
 export interface ImportExecuteRequest {
   fileId: string;
+  columnMapping?: ColumnMappingMap;
 }
 
 export interface ImportSheetResult {
