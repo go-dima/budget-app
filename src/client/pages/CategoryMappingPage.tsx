@@ -97,6 +97,7 @@ export function CategoryMappingPage() {
       isLoading={isLoading}
       error={error}
       onRecalculate={categoryMappingApi.recalculate}
+      onReloadData={reload}
       tableColumns={tableColumns}
       rowClassName={r => r.preferredCategoryId === null ? 'mapping-row-no-preferred' : ''}
       getValueOptions={() => categoryOptions}

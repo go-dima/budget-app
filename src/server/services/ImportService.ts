@@ -15,6 +15,7 @@ import type {
   ColumnMappingEntry,
   ColumnMappingTarget,
 } from '../../shared/types.js';
+import { byDateDesc } from '../../shared/utils.js';
 import {
   parseSheet, parseRawRows, getSheetMeta, detectColumns, COLUMN_MAPPING,
   isHtmlFile, extractHtmlSheets, detectHeaderRow,
@@ -316,6 +317,7 @@ export class ImportService {
       this.db.delete(settings).where(eq(settings.key, `tmp:${fileId}`)).run();
     } catch {}
 
+    transactionsForReview.sort(byDateDesc);
     return { success: results.every(r => r.error === null), results, totalNew, totalSkipped, transactionsForReview };
   }
 

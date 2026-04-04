@@ -5,6 +5,8 @@ import { MappingSelectCell } from '../MappingSelectCell/MappingSelectCell.js';
 import { COLUMN_MAPPING_TARGETS } from '../../../shared/types.js';
 import type { ColumnMappingTarget } from '../../../shared/types.js';
 
+const MAPPING_OPTIONS = COLUMN_MAPPING_TARGETS.filter(t => t.value !== 'ignore');
+
 export interface MappingTableRow {
   key: string;
   sourceColumn: string;
@@ -31,26 +33,39 @@ export function MappingTable({ rows, onSave, onDelete, placeholder }: MappingTab
       key: 'targetField',
       render: (_: unknown, record: MappingTableRow) => (
         <MappingSelectCell
-          value={record.targetField}
-          valueLabel={COLUMN_MAPPING_TARGETS.find(t => t.value === record.targetField)?.label}
-          options={COLUMN_MAPPING_TARGETS}
+          value={record.targetField === 'ignore' ? null : record.targetField}
+          valueLabel={MAPPING_OPTIONS.find(t => t.value === record.targetField)?.label}
+          options={MAPPING_OPTIONS}
           onSave={(val) => onSave(record.sourceColumn, val as ColumnMappingTarget)}
           placeholder={placeholder}
         />
       ),
     },
-    ...(onDelete ? [{
+    {
       title: '',
-      key: 'delete',
-      width: 48,
+      key: 'actions',
+      width: 96,
       render: (_: unknown, record: MappingTableRow) => (
-        <Button
-          icon={<DeleteOutlined />}
-          danger
-          onClick={() => onDelete(record.sourceColumn)}
-        />
+        <div style={{ display: 'flex', gap: 4 }}>
+          <Button
+            size="small"
+            onClick={() => onSave(record.sourceColumn, 'ignore')}
+            type={record.targetField === 'ignore' ? 'primary' : 'default'}
+            danger={record.targetField !== 'ignore'}
+          >
+            Ignore
+          </Button>
+          {onDelete && (
+            <Button
+              icon={<DeleteOutlined />}
+              danger
+              size="small"
+              onClick={() => onDelete(record.sourceColumn)}
+            />
+          )}
+        </div>
       ),
-    }] : []),
+    },
   ];
 
   return (

@@ -50,7 +50,7 @@ export class TransactionService {
   list(filters: TransactionFilters = {}): TransactionsResponse {
     const {
       accountIds, categoryIds, startDate, endDate, type, excludeCategories,
-      search, sortBy = 'date', sortOrder = 'desc', page = 1, pageSize = 50,
+      search, paymentMethods, amountMin, amountMax, sortBy = 'date', sortOrder = 'desc', page = 1, pageSize = 50,
     } = filters;
 
     const conditions = [];
@@ -61,6 +61,9 @@ export class TransactionService {
     if (endDate) conditions.push(lte(transactions.date, endDate));
     if (type && type !== 'all') conditions.push(eq(transactions.type, type));
     if (search) conditions.push(like(transactions.description, `%${search}%`));
+    if (paymentMethods?.length) conditions.push(inArray(transactions.paymentMethod, paymentMethods));
+    if (amountMin != null) conditions.push(gte(sql`abs(${transactions.amount})`, amountMin));
+    if (amountMax != null) conditions.push(lte(sql`abs(${transactions.amount})`, amountMax));
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 

@@ -70,6 +70,7 @@ const meta: Meta<typeof MappingPage<SampleRow>> = {
     getValueOptions: () => valueOptions,
     valuePlaceholder: 'Category',
     onRecalculate: async () => ({ updated: 3, conflicts: 1, noops: 5 }),
+    onReloadData: () => {},
     onAdd: async () => {},
   },
 };

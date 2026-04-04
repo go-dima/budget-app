@@ -94,6 +94,7 @@ export function PaymentMappingPage() {
       isLoading={isLoading}
       error={error}
       onRecalculate={paymentMappingApi.recalculate}
+      onReloadData={reload}
       tableColumns={tableColumns}
       rowClassName={r => r.preferredPaymentMethod === null ? 'mapping-row-no-preferred' : ''}
       getValueOptions={getPaymentOptions}

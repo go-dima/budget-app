@@ -34,6 +34,9 @@ function toParams(filters: TransactionFilters): string {
   if (filters.endDate) p.set('endDate', filters.endDate);
   if (filters.type) p.set('type', filters.type);
   if (filters.search) p.set('search', filters.search);
+  if (filters.paymentMethods?.length) p.set('paymentMethods', filters.paymentMethods.join(','));
+  if (filters.amountMin != null) p.set('amountMin', String(filters.amountMin));
+  if (filters.amountMax != null) p.set('amountMax', String(filters.amountMax));
   if (filters.sortBy) p.set('sortBy', filters.sortBy);
   if (filters.sortOrder) p.set('sortOrder', filters.sortOrder);
   if (filters.page) p.set('page', String(filters.page));

@@ -9,14 +9,15 @@ const { Text } = Typography;
 interface ImportPreviewProps {
   preview: ImportPreviewResponse;
   availableAccounts: string[];
+  initialNameOverrides?: Record<string, string>;
   onConfirm: (sheetNameOverrides: Record<string, string>, selectedSheets: string[]) => void;
   isLoading: boolean;
 }
 
-export function ImportPreview({ preview, availableAccounts, onConfirm, isLoading }: ImportPreviewProps) {
-  // nameOverrides: sheetName → effective account name (defaults to sheet name)
+export function ImportPreview({ preview, availableAccounts, initialNameOverrides, onConfirm, isLoading }: ImportPreviewProps) {
+  // nameOverrides: sheetName → effective account name (defaults to sheet name, or pre-filled from column mapping)
   const [nameOverrides, setNameOverrides] = useState<Record<string, string>>(
-    () => Object.fromEntries(preview.sheets.map(s => [s.sheetName, s.sheetName]))
+    () => Object.fromEntries(preview.sheets.map(s => [s.sheetName, initialNameOverrides?.[s.sheetName] ?? s.sheetName]))
   );
 
   const validSheets = preview.sheets.filter(s => !s.error && s.rowCount > 0);

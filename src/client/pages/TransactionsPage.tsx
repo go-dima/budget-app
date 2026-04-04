@@ -18,21 +18,26 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { filters, setSearch, setAccountIds, setSortBy, setSortOrder, setPage, setPageSize, allCategories } = useFilters();
+  const { filters, setSearch, setSortBy, setSortOrder, setPage, setPageSize, allCategories, sidebarAccounts } = useFilters();
 
-  // Read URL category/account params once on mount into local state, then clear them from URL.
+  // Read URL category/account params once on mount into local (temporal) state, then clear from URL.
+  // These are page-level filters — they don't persist in FilterContext.
   const [pageCategoryIds, setPageCategoryIds] = useState<string[]>(() => {
     const ids = searchParams.get('categoryIds')?.split(',').filter(Boolean);
     return ids?.length ? ids : [];
   });
 
+  const [pageAccountIds, setPageAccountIds] = useState<string[]>(() => {
+    const ids = searchParams.get('accountIds')?.split(',').filter(Boolean);
+    return ids?.length ? ids : [];
+  });
+
+  const [pageDateRange, setPageDateRange] = useState<[string, string] | null>(null);
+  const [pageAmountRange, setPageAmountRange] = useState<{ min?: number; max?: number }>({});
+  const [pagePaymentMethods, setPagePaymentMethods] = useState<string[]>([]);
+
   useEffect(() => {
-    const accountParam = searchParams.get('accountIds');
-    if (accountParam) {
-      const ids = accountParam.split(',').filter(Boolean);
-      if (ids.length > 0) setAccountIds(ids);
-    }
-    if (searchParams.get('categoryIds') || accountParam) {
+    if (searchParams.get('categoryIds') || searchParams.get('accountIds')) {
       setSearchParams({}, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,12 +63,18 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
   // Clear excludeCategories + date range when arriving via a navigated search so all
   // matching transactions are visible regardless of category exclusions or date window.
   // Also clear date range for pageCategoryIds to show the full picture per category.
+  const hasAmountRange = pageAmountRange.min != null || pageAmountRange.max != null;
   const overrides: Partial<TransactionFilters> | undefined =
-    (pageCategoryIds.length || navigatedWithSearch)
+    (pageAccountIds.length || pageCategoryIds.length || navigatedWithSearch || pageDateRange || hasAmountRange || pagePaymentMethods.length)
       ? {
+          ...(pageAccountIds.length ? { accountIds: pageAccountIds, startDate: undefined, endDate: undefined } : {}),
           ...(pageCategoryIds.length ? { categoryIds: pageCategoryIds } : {}),
           excludeCategories: [],
           ...(navigatedWithSearch ? { startDate: undefined, endDate: undefined } : {}),
+          ...(pageDateRange ? { startDate: pageDateRange[0], endDate: pageDateRange[1] } : {}),
+          ...(pageAmountRange.min != null ? { amountMin: pageAmountRange.min } : {}),
+          ...(pageAmountRange.max != null ? { amountMax: pageAmountRange.max } : {}),
+          ...(pagePaymentMethods.length ? { paymentMethods: pagePaymentMethods } : {}),
         }
       : undefined;
 
@@ -79,7 +90,7 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
     reload();
   }
 
-  const isEmpty = !isLoading && data.total === 0 && !filters.search && pageCategoryIds.length === 0;
+  const isEmpty = !isLoading && data.total === 0 && !filters.search && pageCategoryIds.length === 0 && pageAccountIds.length === 0;
 
   if (isEmpty) {
     return (
@@ -91,7 +102,7 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
   }
 
   return (
-    <div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* Quick Stats */}
       <Card className="mb-16">
         <Row gutter={16}>
@@ -119,6 +130,15 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
         allCategories={allCategories}
         pageCategoryIds={pageCategoryIds}
         onPageCategoryChange={setPageCategoryIds}
+        pageAccountIds={pageAccountIds}
+        onPageAccountChange={setPageAccountIds}
+        accountOptions={sidebarAccounts.map(a => ({ value: a.id, label: a.name }))}
+        pageDateRange={pageDateRange}
+        onPageDateRangeChange={setPageDateRange}
+        pageAmountRange={pageAmountRange}
+        onPageAmountRangeChange={setPageAmountRange}
+        pagePaymentMethods={pagePaymentMethods}
+        onPagePaymentMethodsChange={setPagePaymentMethods}
         initialSearch={filters.search}
         onSearch={setSearch}
         onSort={(sortBy, sortOrder) => {

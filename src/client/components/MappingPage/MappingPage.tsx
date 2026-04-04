@@ -13,6 +13,7 @@ export interface MappingPageProps<T extends { account: string; description: stri
   isLoading: boolean;
   error: Error | null;
   onRecalculate: () => Promise<RecalculateResult>;
+  onReloadData: () => void;
   tableColumns: ColumnsType<T>;
   rowClassName?: (row: T) => string;
   getValueOptions: (accountData: T[]) => { value: string; label: string }[];
@@ -26,6 +27,7 @@ export function MappingPage<T extends { account: string; description: string }>(
   isLoading,
   error,
   onRecalculate,
+  onReloadData,
   tableColumns,
   rowClassName,
   getValueOptions,
@@ -47,6 +49,7 @@ export function MappingPage<T extends { account: string; description: string }>(
       message.success(
         `Mapping recalculated: ${result.updated} updated, ${result.conflicts} without preferred, ${result.noops} no-ops`,
       );
+      onReloadData();
     } finally {
       setRecalculating(false);
     }

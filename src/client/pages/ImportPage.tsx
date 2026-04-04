@@ -17,7 +17,7 @@ const { Dragger } = Upload;
 
 export function ImportPage() {
   const {
-    step, status, activeDb, preview, result, reviewTransactions,
+    step, status, activeDb, preview, skippedSheets, pendingAccountOverrides, result, reviewTransactions,
     isLoading, isResetting,
     handleFileSelect, handleHeaderSelectionConfirm, handleConfirm, handleColumnMappingConfirm,
     handleReviewComplete, handleReset, handleImportMore, handleGoToOverview,
@@ -36,16 +36,16 @@ export function ImportPage() {
     [status]
   );
 
-  // All valid sheets for the column mapping step (sheets with no data are excluded)
+  // All valid sheets for the column mapping step (sheets with no data or skipped are excluded)
   const columnMappingSheets = useMemo(
     () => (preview?.sheets ?? [])
-      .filter(s => !s.error && s.rowCount > 0)
+      .filter(s => !s.error && s.rowCount > 0 && !skippedSheets.includes(s.sheetName))
       .map(s => ({
         sheetName: s.sheetName,
         unknownColumns: s.unknownColumns ?? [],
         storedMapping: s.storedColumnMapping ?? null,
       })),
-    [preview]
+    [preview, skippedSheets]
   );
 
   return (
@@ -101,8 +101,9 @@ export function ImportPage() {
         <div className="mb-24">
           <Title level={4}>Preview</Title>
           <ImportPreview
-            preview={preview}
+            preview={{ ...preview, sheets: preview.sheets.filter(s => !skippedSheets.includes(s.sheetName)) }}
             availableAccounts={availableAccounts}
+            initialNameOverrides={Object.keys(pendingAccountOverrides).length > 0 ? pendingAccountOverrides : undefined}
             onConfirm={(overrides, sheets) => handleConfirm(overrides, sheets)}
             isLoading={isLoading}
           />

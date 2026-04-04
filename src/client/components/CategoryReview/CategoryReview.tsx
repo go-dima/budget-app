@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { AutoComplete, Button, Table, Tag, Typography } from 'antd';
+import { Button, Table, Tabs, Tag, Typography } from 'antd';
 import type { DefaultOptionType } from 'antd/es/select';
 import type { ColumnsType } from 'antd/es/table';
 import type { Category, ImportedTransactionReview } from '../../../shared/types.js';
 import { EmptyState } from '../EmptyState/EmptyState.js';
-import { CategorySelect } from '../CategorySelect/CategorySelect.js';
+import { SearchableDropdown } from '../SearchableDropdown/SearchableDropdown.js';
 import { AmountDisplay } from '../AmountDisplay/AmountDisplay.js';
 import { dateCol as makeDateCol, descriptionColSimple as makeDescCol } from '../tableColumns.js';
 import styles from './CategoryReview.module.css';
@@ -52,7 +52,7 @@ export function CategoryReview({ transactions, categories, onSave, isLoading }: 
   const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string | null>>({});
   const [pmOverrides, setPmOverrides] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
-  const [currentPage, setCurrentPage] = useState(1);
+  const [pages, setPages] = useState<Record<string, number>>({});
 
   function getEffectiveCategoryId(row: ImportedTransactionReview): string | null {
     if (row.id in categoryOverrides) return categoryOverrides[row.id]!;
@@ -72,6 +72,15 @@ export function CategoryReview({ transactions, categories, onSave, isLoading }: 
     return pmOverrides[row.id] ?? row.paymentMethod ?? '';
   }
 
+  const groups = useMemo(() => {
+    const map = new Map<string, ImportedTransactionReview[]>();
+    for (const tx of transactions) {
+      if (!map.has(tx.accountName)) map.set(tx.accountName, []);
+      map.get(tx.accountName)!.push(tx);
+    }
+    return Array.from(map.entries());
+  }, [transactions]);
+
   const rowCategoryOptions = useMemo(() => new Map(
     transactions.map(row => [row.id, buildCategoryOptions(row.preferredCategoryId, row.suggestedCategoryIds, categories)])
   ), [transactions, categories]);
@@ -85,7 +94,7 @@ export function CategoryReview({ transactions, categories, onSave, isLoading }: 
       for (const pm of row.suggestedPaymentMethods) pmSet.add(pm);
       if (row.paymentMethod) pmSet.add(row.paymentMethod);
     }
-    return Array.from(pmSet).map(v => ({ value: v }));
+    return Array.from(pmSet).map(v => ({ value: v, label: v }));
   }, [transactions]);
 
   function handleSave() {
@@ -127,9 +136,10 @@ export function CategoryReview({ transactions, categories, onSave, isLoading }: 
           );
         }
         return (
-          <CategorySelect
+          <SearchableDropdown
             value={effectiveId}
             options={rowCategoryOptions.get(row.id) ?? allCategoryOptions}
+            placeholder="Select category"
             onChange={val => setCategoryOverrides(p => ({ ...p, [row.id]: val ?? null }))}
             onClear={() => setCategoryOverrides(p => ({ ...p, [row.id]: null }))}
           />
@@ -143,13 +153,11 @@ export function CategoryReview({ transactions, categories, onSave, isLoading }: 
       render: (_: unknown, row: ImportedTransactionReview) => {
         if (skipped.has(row.id)) return <Text type="secondary">—</Text>;
         return (
-          <AutoComplete
-            value={getEffectivePm(row)}
+          <SearchableDropdown
+            value={getEffectivePm(row) || undefined}
             options={pmSuggestions}
-            onChange={val => setPmOverrides(p => ({ ...p, [row.id]: val }))}
-            style={{ width: '100%' }}
-            size="small"
-            allowClear
+            allowCreate
+            onChange={val => setPmOverrides(p => ({ ...p, [row.id]: val ?? '' }))}
           />
         );
       },
@@ -191,13 +199,26 @@ export function CategoryReview({ transactions, categories, onSave, isLoading }: 
         </Button>
       </div>
 
-      <Table<ImportedTransactionReview>
-        dataSource={transactions}
-        rowKey="id"
-        columns={columns}
-        size="small"
-        pagination={{ pageSize: 50, showSizeChanger: false, current: currentPage, onChange: setCurrentPage }}
-        rowClassName={row => skipped.has(row.id) ? styles.skipped : ''}
+      <Tabs
+        items={groups.map(([account, rows]) => ({
+          key: account,
+          label: account,
+          children: (
+            <Table<ImportedTransactionReview>
+              dataSource={rows}
+              rowKey="id"
+              columns={columns}
+              size="small"
+              pagination={{
+                pageSize: 50,
+                showSizeChanger: false,
+                current: pages[account] ?? 1,
+                onChange: p => setPages(prev => ({ ...prev, [account]: p })),
+              }}
+              rowClassName={row => skipped.has(row.id) ? styles.skipped : ''}
+            />
+          ),
+        }))}
       />
     </div>
   );

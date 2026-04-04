@@ -8,6 +8,7 @@ interface FilterContextValue {
   defaultExcludedIds: string[];
   sidebarAccounts: Account[];
   allCategories: Category[];
+  latestTransactionDate: string | null;
   setAccountIds: (ids: string[]) => void;
   setCategoryIds: (ids: string[]) => void;
   setExcludeCategories: (ids: string[]) => void;
@@ -59,6 +60,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
   const [defaultExcludedIds, setDefaultExcludedIds] = useState<string[]>([]);
   const [sidebarAccounts, setSidebarAccounts] = useState<Account[]>([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [latestTransactionDate, setLatestTransactionDate] = useState<string | null>(null);
   // Tracks the last params string WE wrote, so we can ignore our own URL updates
   const lastWrittenParamsRef = useRef<string>('');
 
@@ -87,6 +89,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
           .sort()
           .at(-1);
         if (latestDate) {
+          setLatestTransactionDate(latestDate);
           const range = dateRangeFromAnchor(latestDate);
           setFiltersState(prev => ({ ...prev, startDate: range.startDate, endDate: range.endDate, page: 1 }));
         }
@@ -180,11 +183,12 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     defaultExcludedIds,
     sidebarAccounts,
     allCategories,
+    latestTransactionDate,
     refreshCategoriesData,
     refreshAll,
     resetFilters,
     ...stableSetters,
-  }), [filters, defaultExcludedIds, sidebarAccounts, allCategories, refreshAll, refreshCategoriesData, resetFilters, stableSetters]);
+  }), [filters, defaultExcludedIds, sidebarAccounts, allCategories, latestTransactionDate, refreshAll, refreshCategoriesData, resetFilters, stableSetters]);
 
   return <FilterContext.Provider value={value}>{children}</FilterContext.Provider>;
 }

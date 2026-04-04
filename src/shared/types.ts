@@ -69,6 +69,9 @@ export interface TransactionFilters {
   type?: TransactionType | 'all';
   excludeCategories?: string[];
   search?: string;
+  paymentMethods?: string[];
+  amountMin?: number;  // agorot, absolute value
+  amountMax?: number;  // agorot, absolute value
   sortBy?: 'date' | 'amount' | 'category' | 'account';
   sortOrder?: 'asc' | 'desc';
   page?: number;

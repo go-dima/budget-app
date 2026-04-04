@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Table, Tag, Typography } from 'antd';
+import { Button, Checkbox, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { ImportPreviewSheet } from '../../../shared/types.js';
 
@@ -7,7 +7,7 @@ const { Text } = Typography;
 
 interface HeaderRowSelectorProps {
   sheets: ImportPreviewSheet[];
-  onConfirm: (headerRowOverrides: Record<string, number>) => void;
+  onConfirm: (headerRowOverrides: Record<string, number>, skippedSheets: string[]) => void;
 }
 
 /**
@@ -21,13 +21,25 @@ export function HeaderRowSelector({ sheets, onConfirm }: HeaderRowSelectorProps)
   const [selections, setSelections] = useState<Record<string, number>>(
     () => Object.fromEntries(sheetsWithRawRows.map(s => [s.sheetName, s.detectedHeaderRow]))
   );
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
 
   function handleRowClick(sheetName: string, rowIdx: number) {
     setSelections(prev => ({ ...prev, [sheetName]: rowIdx }));
   }
 
+  function toggleSkip(sheetName: string) {
+    setSkipped(prev => {
+      const next = new Set(prev);
+      if (next.has(sheetName)) next.delete(sheetName); else next.add(sheetName);
+      return next;
+    });
+  }
+
   function handleConfirm() {
-    onConfirm(selections);
+    const overrides = Object.fromEntries(
+      Object.entries(selections).filter(([name]) => !skipped.has(name))
+    );
+    onConfirm(overrides, Array.from(skipped));
   }
 
   return (
@@ -58,36 +70,45 @@ export function HeaderRowSelector({ sheets, onConfirm }: HeaderRowSelectorProps)
           return Object.assign(padded, { _idx: idx });
         });
 
+        const isSkipped = skipped.has(sheet.sheetName);
         return (
           <div key={sheet.sheetName} style={{ marginBottom: 32 }}>
-            {sheetsWithRawRows.length > 1 && (
-              <Text strong style={{ display: 'block', marginBottom: 8 }}>Sheet: {sheet.sheetName}</Text>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              {sheetsWithRawRows.length > 1
+                ? <Text strong>Sheet: {sheet.sheetName}</Text>
+                : <span />
+              }
+              <Checkbox checked={isSkipped} onChange={() => toggleSkip(sheet.sheetName)}>
+                Skip this sheet
+              </Checkbox>
+            </div>
+            {!isSkipped && (
+              <Table<string[]>
+                dataSource={dataSource}
+                columns={columns}
+                rowKey={r => String((r as unknown as { _idx: number })._idx)}
+                pagination={false}
+                size="small"
+                scroll={{ x: 'max-content', y: 400 }}
+                onRow={(record) => {
+                  const idx = (record as unknown as { _idx: number })._idx;
+                  return {
+                    onClick: () => handleRowClick(sheet.sheetName, idx),
+                    style: {
+                      cursor: 'pointer',
+                      background: idx === selectedIdx ? '#e6f4ff' : undefined,
+                      fontWeight: idx === selectedIdx ? 600 : undefined,
+                    },
+                  };
+                }}
+                title={() => (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Click the row that contains the column headers.{' '}
+                    <Tag color="blue">Row {selectedIdx + 1}</Tag> is currently selected.
+                  </Text>
+                )}
+              />
             )}
-            <Table<string[]>
-              dataSource={dataSource}
-              columns={columns}
-              rowKey={r => String((r as unknown as { _idx: number })._idx)}
-              pagination={false}
-              size="small"
-              scroll={{ x: 'max-content', y: 400 }}
-              onRow={(record) => {
-                const idx = (record as unknown as { _idx: number })._idx;
-                return {
-                  onClick: () => handleRowClick(sheet.sheetName, idx),
-                  style: {
-                    cursor: 'pointer',
-                    background: idx === selectedIdx ? '#e6f4ff' : undefined,
-                    fontWeight: idx === selectedIdx ? 600 : undefined,
-                  },
-                };
-              }}
-              title={() => (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Click the row that contains the column headers.{' '}
-                  <Tag color="blue">Row {selectedIdx + 1}</Tag> is currently selected.
-                </Text>
-              )}
-            />
           </div>
         );
       })}

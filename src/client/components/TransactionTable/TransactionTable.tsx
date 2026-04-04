@@ -1,30 +1,35 @@
 import { useEffect, useMemo, useRef, useState, memo } from 'react';
-import { AutoComplete, Input, Pagination, Select, Table, Tag } from 'antd';
+import { DatePicker, InputNumber, Pagination, Space, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table/index.js';
 import type { SorterResult } from 'antd/es/table/interface.js';
+import dayjs from 'dayjs';
 import type { Category, Transaction, TransactionFilters } from '../../../shared/types.js';
 import { amountCol, dateCol, descriptionCol } from '../tableColumns.js';
-import { CategorySelect } from '../CategorySelect/CategorySelect.js';
+import { SearchableDropdown } from '../SearchableDropdown/SearchableDropdown.js';
+import { MultiSelectFilter } from '../MultiSelectFilter/MultiSelectFilter.js';
+import { ToolbarSearch } from '../ToolbarSearch/ToolbarSearch.js';
+import { useDebounce } from '../../hooks/useDebounce.js';
 import styles from './TransactionTable.module.css';
+
+const { RangePicker } = DatePicker;
 
 const PaymentMethodCell = memo(function PaymentMethodCell({
   row, pmOptions, onPaymentMethodChange,
 }: {
   row: Transaction;
-  pmOptions: { value: string }[];
+  pmOptions: { value: string; label: string }[];
   onPaymentMethodChange?: (id: string, paymentMethod: string) => void;
 }) {
   const [value, setValue] = useState(row.paymentMethod ?? '');
   useEffect(() => { setValue(row.paymentMethod ?? ''); }, [row.paymentMethod]);
   return (
-    <AutoComplete
-      value={value}
+    <SearchableDropdown
+      value={value || undefined}
       options={pmOptions}
-      onChange={setValue}
+      allowCreate
+      onChange={val => setValue(val ?? '')}
       onBlur={() => onPaymentMethodChange?.(row.id, value)}
-      style={{ width: '100%', minWidth: 120 }}
-      size="small"
-      allowClear
+      style={{ minWidth: 120 }}
     />
   );
 });
@@ -38,6 +43,15 @@ interface TransactionTableProps {
   allCategories: Category[];
   pageCategoryIds: string[];
   onPageCategoryChange: (ids: string[]) => void;
+  pageAccountIds?: string[];
+  onPageAccountChange?: (ids: string[]) => void;
+  accountOptions?: { value: string; label: string }[];
+  pageDateRange?: [string, string] | null;
+  onPageDateRangeChange?: (range: [string, string] | null) => void;
+  pageAmountRange?: { min?: number; max?: number };
+  onPageAmountRangeChange?: (range: { min?: number; max?: number }) => void;
+  pagePaymentMethods?: string[];
+  onPagePaymentMethodsChange?: (vals: string[]) => void;
   onPageChange: (page: number, pageSize: number) => void;
   onSort: (sortBy: TransactionFilters['sortBy'], sortOrder: 'asc' | 'desc') => void;
   onSearch: (search: string) => void;
@@ -49,50 +63,46 @@ interface TransactionTableProps {
 export function TransactionTable({
   transactions, total, page, pageSize, isLoading,
   allCategories, pageCategoryIds, onPageCategoryChange,
+  pageAccountIds, onPageAccountChange, accountOptions,
+  pageDateRange, onPageDateRangeChange,
+  pageAmountRange, onPageAmountRangeChange,
+  pagePaymentMethods, onPagePaymentMethodsChange,
   onPageChange, onSort, onSearch, initialSearch,
   onCategoryChange, onPaymentMethodChange,
 }: TransactionTableProps) {
   const [localSearch, setLocalSearch] = useState(initialSearch ?? '');
+  const [localAmount, setLocalAmount] = useState({
+    min: pageAmountRange?.min != null ? pageAmountRange.min / 100 : undefined as number | undefined,
+    max: pageAmountRange?.max != null ? pageAmountRange.max / 100 : undefined as number | undefined,
+  });
 
   // Sync input when search is set externally (e.g. navigating from another page)
+  useEffect(() => { setLocalSearch(initialSearch ?? ''); }, [initialSearch]);
+
+  // Apply debounced amount to parent — skip first render to avoid overwriting on mount
+  const debouncedAmount = useDebounce(localAmount, 500);
+  const amountMounted = useRef(false);
   useEffect(() => {
-    setLocalSearch(initialSearch ?? '');
-  }, [initialSearch]);
-  const [categoryInput, setCategoryInput] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const selectRef = useRef<any>(null);
+    if (!amountMounted.current) { amountMounted.current = true; return; }
+    onPageAmountRangeChange?.({
+      min: debouncedAmount.min != null ? Math.round(debouncedAmount.min * 100) : undefined,
+      max: debouncedAmount.max != null ? Math.round(debouncedAmount.max * 100) : undefined,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedAmount]);
 
   const visibleRows = transactions;
 
   const pmOptions = useMemo(() =>
     [...new Set(transactions.map(t => t.paymentMethod).filter(Boolean))]
-      .map(v => ({ value: v! })),
+      .map(v => ({ value: v!, label: v! })),
     [transactions],
   );
 
-  // Include ALL categories so the Select can resolve label text for selected IDs.
-  // Filter by search text only (not by already-selected) — Select handles that display natively.
-  const filteredCategoryOptions = useMemo(() =>
-    allCategories
-      .filter(c => c.name.toLowerCase().includes(categoryInput.toLowerCase()))
-      .map(c => ({ value: c.id, label: c.name })),
-    [allCategories, categoryInput],
+  const categoryOptions = useMemo(() =>
+    allCategories.map(c => ({ value: c.id, label: c.name })),
+    [allCategories],
   );
-
-  function handleCategoryKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Tab' && categoryInput.trim()) {
-      e.preventDefault();
-      const first = filteredCategoryOptions.find(o => !pageCategoryIds.includes(o.value));
-      if (first) {
-        onPageCategoryChange([...pageCategoryIds, first.value]);
-        setCategoryInput('');
-      }
-    }
-    if (e.key === 'Enter') {
-      // After the default selection action, move focus away and close the dropdown.
-      setTimeout(() => selectRef.current?.blur(), 0);
-    }
-  }
 
   const columns: ColumnsType<Transaction> = [
     dateCol<Transaction>({ sorter: true, defaultSortOrder: 'descend' }),
@@ -100,9 +110,10 @@ export function TransactionTable({
     {
       title: 'Category', key: 'category', sorter: true, width: 180,
       render: (_: unknown, row: Transaction) => (
-        <CategorySelect
+        <SearchableDropdown
           value={row.categoryId ?? null}
           options={allCategories.map(c => ({ value: c.id, label: c.name }))}
+          placeholder="Select category"
           onChange={val => onCategoryChange?.(row.id, val ?? null)}
           onClear={() => onCategoryChange?.(row.id, null)}
         />
@@ -126,49 +137,93 @@ export function TransactionTable({
   }
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <div className={styles.toolbar}>
-        <Select
-          ref={selectRef}
-          mode="multiple"
-          value={pageCategoryIds}
-          onChange={ids => { onPageCategoryChange(ids); setCategoryInput(''); }}
-          searchValue={categoryInput}
-          onSearch={setCategoryInput}
-          options={filteredCategoryOptions}
-          filterOption={false}
-          onInputKeyDown={handleCategoryKeyDown}
-          optionRender={opt => <span dir="rtl">{opt.label as string}</span>}
-          tagRender={({ label, closable, onClose }) => (
-            <Tag closable={closable} onClose={onClose} color="blue" style={{ marginRight: 4 }}>
-              <span dir="rtl">{label as string}</span>
-            </Tag>
+        {/* Row 1: Account, Date, Amount */}
+        <div className={styles.toolbarRow}>
+          {accountOptions && accountOptions.length > 0 && (
+            <MultiSelectFilter
+              value={pageAccountIds ?? []}
+              onChange={ids => onPageAccountChange?.(ids)}
+              options={accountOptions}
+              placeholder="Account"
+              tagColor="geekblue"
+              style={{ minWidth: 132, maxWidth: 286 }}
+            />
           )}
-          placeholder="Filter by category..."
-          style={{ flex: 1, minWidth: 180 }}
-          notFoundContent={categoryInput ? 'No matching categories' : null}
-        />
-        <Input.Search
-          placeholder="Search description..."
-          value={localSearch}
-          onChange={e => {
-            setLocalSearch(e.target.value);
-            if (!e.target.value) onSearch('');
+          <RangePicker
+            picker="month"
+            value={pageDateRange ? [dayjs(pageDateRange[0]), dayjs(pageDateRange[1])] : null}
+            onChange={dates => {
+              if (dates?.[0] && dates?.[1]) {
+                onPageDateRangeChange?.([
+                  dates[0].startOf('month').format('YYYY-MM-DD'),
+                  dates[1].endOf('month').format('YYYY-MM-DD'),
+                ]);
+              } else {
+                onPageDateRangeChange?.(null);
+              }
+            }}
+            allowClear
+          />
+          <Space.Compact>
+            <InputNumber
+              placeholder="Min ₪"
+              min={0}
+              value={localAmount.min}
+              onChange={val => setLocalAmount(prev => ({ ...prev, min: val ?? undefined }))}
+              style={{ width: 90 }}
+            />
+            <InputNumber
+              placeholder="Max ₪"
+              min={0}
+              value={localAmount.max}
+              onChange={val => setLocalAmount(prev => ({ ...prev, max: val ?? undefined }))}
+              style={{ width: 90 }}
+            />
+          </Space.Compact>
+        </div>
+        {/* Row 2: Category, Payment method, Description search */}
+        <div className={styles.toolbarRow}>
+          <MultiSelectFilter
+            value={pageCategoryIds}
+            onChange={onPageCategoryChange}
+            options={categoryOptions}
+            placeholder="Filter by category..."
+            tagColor="blue"
+            rtl
+          />
+          <MultiSelectFilter
+            value={pagePaymentMethods ?? []}
+            onChange={vals => onPagePaymentMethodsChange?.(vals)}
+            options={pmOptions}
+            placeholder="Filter by payment..."
+            tagColor="purple"
+          />
+          <ToolbarSearch
+            placeholder="Search description..."
+            value={localSearch}
+            onChange={v => { setLocalSearch(v); onSearch(v); }}
+            debounceMs={400}
+            style={{ minWidth: 200 }}
+          />
+        </div>
+      </div>
+      <div style={{ flex: 1, overflow: 'auto' }}>
+        <Table
+          dataSource={visibleRows}
+          columns={columns}
+          rowKey="id"
+          loading={isLoading}
+          scroll={{ x: 700 }}
+          pagination={false}
+          onChange={handleTableChange}
+          rowClassName={(record: Transaction) => {
+            const [year, month] = record.date.split('-').map(Number);
+            return (year * 12 + month) % 2 === 0 ? styles.monthAlt : '';
           }}
-          onSearch={value => onSearch(value)}
-          allowClear={{ clearIcon: <span style={{ fontSize: 12, color: '#888' }}>Clear</span> }}
-          style={{ flex: 1, minWidth: 200 }}
         />
       </div>
-      <Table
-        dataSource={visibleRows}
-        columns={columns}
-        rowKey="id"
-        loading={isLoading}
-        scroll={{ x: 700 }}
-        pagination={false}
-        onChange={handleTableChange}
-      />
       <div className={styles.paginationBar}>
         <Pagination
           current={page}
@@ -182,3 +237,4 @@ export function TransactionTable({
     </div>
   );
 }
+

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { message } from 'antd';
+import { message, notification } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { databasesApi, importApi, transactionsApi } from '../httpClient/client.js';
+import { categoryMappingApi, databasesApi, importApi, paymentMappingApi, transactionsApi } from '../httpClient/client.js';
 import { useFilters } from '../contexts/FilterContext.js';
 import type { DbEntry, ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse, ImportedTransactionReview, ColumnMappingMap } from '../../shared/types.js';
 
@@ -21,6 +21,10 @@ export function useImportFlow() {
   const [currentFilename, setCurrentFilename] = useState('import.xlsx');
   // header row overrides set by HeaderRowSelector (sheetName → 0-based row index)
   const [headerRowOverrides, setHeaderRowOverrides] = useState<Record<string, number>>({});
+  const [skippedSheets, setSkippedSheets] = useState<string[]>([]);
+  // column mapping confirmed in ColumnMappingStep, held until preview is confirmed
+  const [pendingColumnMapping, setPendingColumnMapping] = useState<ColumnMappingMap | undefined>(undefined);
+  const [pendingAccountOverrides, setPendingAccountOverrides] = useState<Record<string, string>>({});
 
   const loadStatus = useCallback(() => {
     importApi.getStatus().then(setStatus).catch(console.error);
@@ -36,6 +40,9 @@ export function useImportFlow() {
       const data = await importApi.preview(file);
       setPreview(data);
       setHeaderRowOverrides({});  // reset on new file
+      setSkippedSheets([]);
+      setPendingColumnMapping(undefined);
+      setPendingAccountOverrides({});
       const needsHeaderSelection = data.sheets.some(s => s.detectedHeaderRow > 0);
       const needsColumnMapping = data.sheets.some(s => (s.unknownColumns ?? []).length > 0);
       if (needsHeaderSelection) setStep('headerSelection');
@@ -49,34 +56,46 @@ export function useImportFlow() {
     return false; // prevent default upload behaviour
   }
 
-  function handleHeaderSelectionConfirm(overrides: Record<string, number>) {
+  function handleHeaderSelectionConfirm(overrides: Record<string, number>, skipped: string[]) {
     setHeaderRowOverrides(overrides);
+    setSkippedSheets(skipped);
     if (!preview) return;
-    const needsColumnMapping = preview.sheets.some(s => (s.unknownColumns ?? []).length > 0);
+    const activeSheets = preview.sheets.filter(s => !skipped.includes(s.sheetName));
+    const needsColumnMapping = activeSheets.some(s => (s.unknownColumns ?? []).length > 0);
     setStep(needsColumnMapping ? 'columnMapping' : 'preview');
   }
 
   async function handleConfirm(sheetNameOverrides: Record<string, string> = {}, selectedSheets: string[] = [], columnMapping?: ColumnMappingMap) {
     if (!preview) return;
+    // Merge account overrides from column mapping step (pendingAccountOverrides) with
+    // any sheet-level name overrides from the preview step (sheetNameOverrides).
+    const mergedOverrides = { ...pendingAccountOverrides, ...sheetNameOverrides };
+    const resolvedMapping = columnMapping ?? pendingColumnMapping;
+    setPendingColumnMapping(undefined);
+    setPendingAccountOverrides({});
     setStep('importing');
     setIsLoading(true);
     try {
-      const data = await importApi.execute(preview.fileId, currentFilename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides);
+      const data = await importApi.execute(preview.fileId, currentFilename, mergedOverrides, selectedSheets, resolvedMapping, headerRowOverrides);
       setResult(data);
       setReviewTransactions(data.transactionsForReview);
+      const hasSuccess = data.results.some(r => r.error === null);
       // Only advance to review if at least one sheet imported successfully
-      setStep(data.results.some(r => r.error === null) ? 'review' : 'summary');
+      setStep(hasSuccess ? 'review' : 'summary');
+      if (!hasSuccess) runMappingRecalculation();
       loadStatus();
     } catch (e) {
       message.error(`Import failed: ${String(e)}`);
-      setStep(columnMapping ? 'columnMapping' : 'preview');
+      setStep(resolvedMapping ? 'columnMapping' : 'preview');
     } finally {
       setIsLoading(false);
     }
   }
 
   function handleColumnMappingConfirm(mapping: ColumnMappingMap, accountOverrides: Record<string, string>) {
-    handleConfirm(accountOverrides, [], mapping);
+    setPendingColumnMapping(mapping);
+    setPendingAccountOverrides(accountOverrides);
+    setStep('preview');
   }
 
   async function handleReviewComplete(
@@ -94,12 +113,37 @@ export function useImportFlow() {
         skippedIds.length > 0 ? transactionsApi.bulkDelete(skippedIds) : Promise.resolve(),
       ]);
       refreshAll();
+      runMappingRecalculation();
       setStep('summary');
     } catch (e) {
       message.error(`Failed to save review: ${String(e)}`);
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function runMappingRecalculation() {
+    Promise.all([
+      categoryMappingApi.recalculate(),
+      paymentMappingApi.recalculate(),
+    ]).then(([cat, pm]) => {
+      const total = cat.updated + pm.updated;
+      notification.success({
+        message: 'Mappings applied',
+        description: total > 0
+          ? `${cat.updated} category and ${pm.updated} payment assignments applied.`
+          : 'No new mappings to apply.',
+        placement: 'top',
+        duration: 5,
+      });
+    }).catch(() => {
+      notification.error({
+        message: 'Mapping recalculation failed',
+        description: 'Categories and payment methods could not be recalculated. You can retry from the mapping pages.',
+        placement: 'top',
+        duration: 0,
+      });
+    });
   }
 
   async function handleReset() {
@@ -132,6 +176,8 @@ export function useImportFlow() {
     status,
     activeDb,
     preview,
+    skippedSheets,
+    pendingAccountOverrides,
     result,
     reviewTransactions,
     isLoading,

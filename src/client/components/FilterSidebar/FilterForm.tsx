@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Button, DatePicker, Radio, Tag, Typography } from 'antd';
+import { useMemo, useState } from 'react';
+import { Button, DatePicker, Input, Radio, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 import type { Account, Category, TransactionFilters } from '../../../shared/types.js';
 import { CheckboxList } from '../CheckboxList/CheckboxList.js';
@@ -13,6 +13,7 @@ export interface FilterFormProps {
   accounts: Account[];
   categories: Category[];
   defaultExcludedIds: string[];
+  latestTransactionDate?: string | null;
   onSetAccountIds: (ids: string[]) => void;
   onSetExcludeCategories: (ids: string[]) => void;
   onSetDateRange: (start: string | undefined, end: string | undefined) => void;
@@ -21,15 +22,24 @@ export interface FilterFormProps {
 }
 
 export function FilterForm({
-  filters, accounts, categories, defaultExcludedIds,
+  filters, accounts, categories, defaultExcludedIds, latestTransactionDate,
   onSetAccountIds, onSetExcludeCategories, onSetDateRange, onSetType, onReset,
 }: FilterFormProps) {
+  const [categorySearch, setCategorySearch] = useState('');
+
   const sortedCategories = useMemo(
     () => [...categories].sort((a, b) => {
       if (a.type !== b.type) return a.type === 'expense' ? -1 : 1;
       return a.name.localeCompare(b.name);
     }),
     [categories],
+  );
+
+  const visibleCategories = useMemo(
+    () => categorySearch
+      ? sortedCategories.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+      : sortedCategories,
+    [sortedCategories, categorySearch],
   );
 
   // Key-based reset: remount the picker whenever the external date range changes
@@ -87,10 +97,10 @@ export function FilterForm({
           <Button
             size="small"
             onClick={() => {
-              const y = dayjs().subtract(1, 'year').year();
+              const anchor = dayjs(latestTransactionDate ?? undefined);
               onSetDateRange(
-                dayjs().year(y).startOf('year').format('YYYY-MM-DD'),
-                dayjs().year(y).endOf('year').format('YYYY-MM-DD'),
+                anchor.subtract(1, 'year').startOf('month').format('YYYY-MM-DD'),
+                anchor.endOf('month').format('YYYY-MM-DD'),
               );
             }}
           >
@@ -121,9 +131,17 @@ export function FilterForm({
             Preset
           </Tag>
         </div>
+        <Input
+          placeholder="Search categories..."
+          size="small"
+          allowClear
+          value={categorySearch}
+          onChange={e => setCategorySearch(e.target.value)}
+          style={{ marginBottom: 6 }}
+        />
         <div className={styles.categoryScrollList}>
           <CheckboxList
-            items={sortedCategories}
+            items={visibleCategories}
             mode="exclude"
             excludeIds={filters.excludeCategories ?? []}
             onChangeExclude={onSetExcludeCategories}

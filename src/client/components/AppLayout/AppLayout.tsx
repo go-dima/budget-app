@@ -12,7 +12,7 @@ const { Sider, Content } = Layout;
 const LAYOUT_STYLE = { height: '100vh', overflow: 'hidden' as const };
 const INNER_LAYOUT_STYLE = { overflow: 'hidden' as const, flex: 1 };
 const CONTENT_STYLE_IMPORT = { padding: 24, overflowY: 'auto' as const, flex: 1 };
-const CONTENT_STYLE_MAIN = { padding: '24px 24px 24px 16px', overflowY: 'auto' as const, flex: 1 };
+const CONTENT_STYLE_MAIN = { padding: '24px 24px 24px 16px', overflowY: 'auto' as const, flex: 1, display: 'flex', flexDirection: 'column' as const };
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -22,7 +22,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const {
-    filters, sidebarAccounts, allCategories, defaultExcludedIds,
+    filters, sidebarAccounts, allCategories, defaultExcludedIds, latestTransactionDate,
     setAccountIds, setExcludeCategories, setDateRange, setType, resetFilters,
   } = useFilters();
 
@@ -33,12 +33,13 @@ export function AppLayout({ children }: AppLayoutProps) {
     accounts: sidebarAccounts,
     categories: allCategories,
     defaultExcludedIds,
+    latestTransactionDate,
     onSetAccountIds: setAccountIds,
     onSetExcludeCategories: setExcludeCategories,
     onSetDateRange: setDateRange,
     onSetType: setType,
     onReset: resetFilters,
-  }), [filters, sidebarAccounts, allCategories, defaultExcludedIds, setAccountIds, setExcludeCategories, setDateRange, setType, resetFilters]);
+  }), [filters, sidebarAccounts, allCategories, defaultExcludedIds, latestTransactionDate, setAccountIds, setExcludeCategories, setDateRange, setType, resetFilters]);
 
   return (
     <Layout style={LAYOUT_STYLE}>
