@@ -43,23 +43,29 @@ When navigating to `/transactions?categoryIds=<id>` (e.g., from clicking a categ
 
 ---
 
-## In-Page Filter Row
+## In-Page Filter Toolbar
 
-A row with two controls:
+Two rows of in-page controls above the transaction table. All filters are page-level state (temporal) — not persisted to `FilterContext` or the URL. Filter changes immediately re-fetch data.
 
-1. **Category multi-select** (left): Ant `Select` with `mode="multiple"`.
-   - Options: all categories, sorted by type then alphabetically.
-   - Typing filters available options (but already-selected items are always shown in the tag list).
-   - **Tab**: selects the first matching option and keeps the dropdown open for more typing.
-   - **Enter**: selects current input and dismisses the dropdown (moves focus away).
-   - When any categories are selected: `excludeCategories` is overridden to `[]`.
+### Row 1: Account · Date · Amount
 
-2. **Description search** (right): Ant `Input.Search`.
-   - Typing filters the **current page data** in-memory (no API call) — case-insensitive substring match on description.
-   - **Enter** or clicking the magnifier icon fires a real API fetch with the search term applied to the global filter.
-   - Clearing the input also clears the API search filter.
+| Control | Component | Behavior |
+|---------|-----------|----------|
+| **Account** multi-select | `MultiSelectFilter` (geekblue tags) | Filters to the selected accounts; clears sidebar date range when active |
+| **Date range** picker | Ant `RangePicker` (month mode) | Overrides the global sidebar date range for this page |
+| **Amount** range | Two `InputNumber` fields (Min ₪ / Max ₪) | Filters by absolute amount (agorot); debounced 500 ms before API call |
 
-Both controls sit on the same row (`display: flex`, `gap: 8`, `flex: 1` on each).
+### Row 2: Category · Payment · Description
+
+| Control | Component | Behavior |
+|---------|-----------|----------|
+| **Category** multi-select | `MultiSelectFilter` (blue tags, RTL) | Include-filter; overrides `excludeCategories` to `[]` when active |
+| **Payment method** multi-select | `MultiSelectFilter` (purple tags) | Include-filter on `payment_method` column |
+| **Description search** | `ToolbarSearch` (debounced, 400 ms) | On-type search — no button; fires API call after debounce; clearing resets |
+
+Both rows use `display: flex; gap: 8px; flex-wrap: wrap; align-items: center`.
+
+All multi-select controls support internal typing to filter options and a **Tab** shortcut to select the first unselected match.
 
 ---
 
@@ -81,6 +87,7 @@ An Ant Design `Table` component with the following columns:
 - Default sort: date descending (newest first).
 - Pagination: 50 rows per page (server-side pagination for performance).
 - On mobile: table scrolls horizontally. Date and Amount columns are always visible; others scroll.
+- **Alternating month row colors**: rows in even calendar months (`(year*12 + month) % 2 === 0`) receive a light blue tint (`#f0f5ff`). Rows in odd months remain white. This creates a visual band grouping by month without needing explicit group headers.
 
 ---
 
@@ -125,6 +132,8 @@ If no transactions match the current filters + search:
 - `type` — `income` / `expense` / `all`
 - `excludeCategories` — comma-separated category IDs to exclude
 - `search` — free-text search string
+- `paymentMethods` — comma-separated payment method strings (include filter)
+- `amountMin`, `amountMax` — integer agorot; filter on `abs(amount)`
 - `sortBy` — column name (`date`, `amount`, `category`, `account`)
 - `sortOrder` — `asc` / `desc`
 - `page` — page number (1-based)
@@ -145,3 +154,7 @@ If no transactions match the current filters + search:
 ## Filter Sidebar
 
 **Visible**. All filter changes reset to page 1 and re-fetch.
+
+**"Last year" quick button** in the Date Range section: sets the date range to 12 months ending on the latest transaction date (not the current calendar date). This keeps the view centered on the actual data, not on today's date.
+
+**Category search**: a text input above the category checkbox list allows typing to filter visible categories. Filtering is client-side only — it narrows the list without changing which categories are selected/excluded.

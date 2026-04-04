@@ -6,5 +6,5 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - DATABASE_PATH=/app/data/budget.db
+      - DATA_DIR=/app/data
     restart: unless-stopped

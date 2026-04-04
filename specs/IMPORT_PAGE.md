@@ -50,6 +50,15 @@ Display a message: "No data yet. Upload an Excel file to get started."
 - Accepts `.xlsx` and `.xls` files.
 - Multiple files can be selected at once.
 
+### Step 1b: Header Row Selection (non-standard files)
+
+If any sheet has rows before the header (detected via `detectedHeaderRow > 0`), a header-selection step is shown **before** Column Mapping or Preview.
+
+Each sheet is shown with a scrollable raw-data grid. The user clicks a row to mark it as the header.
+
+- **"Skip this sheet"** checkbox per sheet: when checked, the sheet's data table collapses and the sheet is excluded from all subsequent steps (column mapping, preview, and import). The checkbox is always enabled — skipping all sheets is valid (results in an empty import).
+- Only non-skipped sheets are passed to the column mapping or preview steps.
+
 ### Step 2: Preview (standard files)
 
 After file(s) are selected, the app parses them. If all columns are recognized, a preview is shown **before** any data is written.
@@ -79,21 +88,30 @@ Each sheet section shows:
   - Stored mappings from a previous import of the same account are pre-filled.
 - If all columns are recognized: "All columns recognised — no mapping needed." message.
 
-A **"Confirm & Import"** button is disabled until every unrecognized column in every sheet has a target field assigned.
+A **"Confirm & Import"** button is disabled until every unrecognized column in every sheet has a target field assigned or ignored.
+
+**Ignore button**: each row in the mapping table has a dedicated "Ignore" button. Clicking it marks the column as `ignore` (it will be skipped during import). This is separate from the target-field dropdown — `ignore` is not an option in the dropdown.
+
+**Account names carry forward**: the account name selected in the `AccountSelector` during column mapping is pre-filled in the preview step's `AccountSelector`. The user can still change it before confirming import.
 
 On confirm:
-- Account overrides and column mappings are sent to `executeImport`.
+- Column mapping step stores the account overrides and column mapping in memory.
+- The **preview step** is shown next (not skipped) — the user can review the parsed data and deselect sheets before importing.
+- Account overrides from the column mapping step are pre-filled in the preview's `AccountSelector` widgets.
+- On preview confirm, account overrides, column mappings, and selected sheets are sent to `executeImport`.
 - Column mappings are persisted to `account_column_mapping` (keyed by effective account name).
-- The normal preview step is **skipped** — import executes immediately.
 - DB status panel is **hidden** during this step.
 
 ### Step 3: Category Review
 
-After import, ALL imported transactions are shown for review:
-- "Auto-categorized" section: transactions matched by `description_category_map`.
-- "Uncategorized" section: transactions with no category.
-- Each row has an editable category selector. Changes here do NOT update the mapping table.
-- "Save & Continue" applies overrides and navigates to Summary.
+After import, ALL imported transactions are shown for review, **grouped by account** using Ant `Tabs` (one tab per account). Transactions within each tab are sorted newest-to-oldest.
+
+Each row shows:
+- Editable category selector (`SearchableDropdown`).
+- Editable payment method field (`SearchableDropdown` with `allowCreate` — user can type a free-form value).
+- A skip checkbox to exclude the transaction from the import entirely.
+
+A "Save & Continue" button at the top applies all overrides (bulk-categorize, bulk-set-payment-method, bulk-delete skipped) and navigates to Summary.
 
 ### Step 4: Import Execution
 
@@ -105,6 +123,17 @@ On confirm (Step 2 or Step 2b):
 5. Log the import in `import_logs`.
 
 Show a progress indicator during import (can be simple — "Importing sheet 1/3...").
+
+### Step 4b: Background Mapping Recalculation
+
+Immediately after the review step is saved (or after import if there are no transactions to review), both category and payment-method mappings are recalculated in the background:
+
+- `POST /api/category-mapping/recalculate`
+- `POST /api/payment-mapping/recalculate`
+
+These run in parallel (`Promise.all`) and do **not** block navigation to the Summary step. On completion, an Ant `notification` appears at the top of the screen:
+- **Success**: "Mappings applied — X category and Y payment assignments applied." (or "No new mappings to apply." if none)
+- **Error**: "Mapping recalculation failed — ..." with a hint to retry from the mapping pages.
 
 ### Step 5: Import Summary
 
