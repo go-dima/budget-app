@@ -26,6 +26,7 @@ import { CategoryService } from './CategoryService.js';
 import { CategoryMappingService } from './CategoryMappingService.js';
 import { PaymentMappingService } from './PaymentMappingService.js';
 import { TransactionService } from './TransactionService.js';
+import { fixBidiVisualOrder } from '../../shared/bidiUtils.js';
 
 export class ImportService {
   private accountSvc: AccountService;
@@ -75,7 +76,7 @@ export class ImportService {
       const knownCols = headerRow.filter(c => c.trim() && c.trim() in COLUMN_MAPPING);
       const unknownCols = headerRow.filter(c => c.trim() && !(c.trim() in COLUMN_MAPPING));
       const knownFields = knownCols.map(c => COLUMN_MAPPING[c.trim()]!);
-      const missingAmounts = !knownFields.includes('expense') && !knownFields.includes('income');
+      const missingAmounts = !knownFields.includes('expense') && !knownFields.includes('income') && !knownFields.includes('amount');
       const needsMapping = unknownCols.length > 0 && missingAmounts;
 
       // First 15 rows for header selection UI (only when header is not the very first row)
@@ -148,7 +149,7 @@ export class ImportService {
     return { fileId, sheets };
   }
 
-  executeImport(fileId: string, filename: string, sheetNameOverrides: Record<string, string> = {}, selectedSheets?: string[], columnMapping?: ColumnMappingMap, headerRowOverrides?: Record<string, number>): ImportExecuteResponse {
+  executeImport(fileId: string, filename: string, sheetNameOverrides: Record<string, string> = {}, selectedSheets?: string[], columnMapping?: ColumnMappingMap, headerRowOverrides?: Record<string, number>, fixBidi?: boolean): ImportExecuteResponse {
     const setting = this.db.select().from(settings).where(eq(settings.key, `tmp:${fileId}`)).get();
 
     if (!setting || !existsSync(setting.value)) {
@@ -209,6 +210,7 @@ export class ImportService {
         } else {
           parsed = parseSheet(sheet!, customMap);
         }
+        if (fixBidi) parsed = parsed.map(t => ({ ...t, description: fixBidiVisualOrder(t.description) }));
         if (parsed.length === 0) continue;
         const account = this.accountSvc.findOrCreate(accountName);
 

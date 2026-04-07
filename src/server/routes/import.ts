@@ -31,10 +31,10 @@ router.post('/preview', upload.single('file'), (req, res) => {
 
 router.post('/execute', (req, res) => {
   try {
-    const { fileId, filename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides } = req.body as { fileId: string; filename?: string; sheetNameOverrides?: Record<string, string>; selectedSheets?: string[]; columnMapping?: import('../../shared/types.js').ColumnMappingMap; headerRowOverrides?: Record<string, number> };
+    const { fileId, filename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides, fixBidi } = req.body as { fileId: string; filename?: string; sheetNameOverrides?: Record<string, string>; selectedSheets?: string[]; columnMapping?: import('../../shared/types.js').ColumnMappingMap; headerRowOverrides?: Record<string, number>; fixBidi?: boolean };
     if (!fileId) return res.status(400).json({ error: 'fileId required' });
     const service = new ImportService(dbManager.getDb());
-    res.json(service.executeImport(fileId, filename || 'import.xlsx', sheetNameOverrides ?? {}, selectedSheets, columnMapping, headerRowOverrides));
+    res.json(service.executeImport(fileId, filename || 'import.xlsx', sheetNameOverrides ?? {}, selectedSheets, columnMapping, headerRowOverrides, fixBidi));
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 

@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { transactions, accounts, categories } from '../../db/schema.js';
 import type { DB } from '../../db/index.js';
 import type { Transaction, TransactionFilters, TransactionsResponse } from '../../shared/types.js';
+import { fixBidiVisualOrder } from '../../shared/bidiUtils.js';
 
 export interface InsertTransaction {
   accountId: string;
@@ -141,5 +142,38 @@ export class TransactionService {
 
   deleteAll(): void {
     this.db.delete(transactions).run();
+  }
+
+  fixDescription(id: string): Transaction | null {
+    const row = this.db
+      .select({ id: transactions.id, description: transactions.description })
+      .from(transactions)
+      .where(eq(transactions.id, id))
+      .get();
+    if (!row) return null;
+    const fixed = fixBidiVisualOrder(row.description);
+    this.db.update(transactions).set({ description: fixed }).where(eq(transactions.id, id)).run();
+    return this.db
+      .select({
+        id: transactions.id,
+        accountId: transactions.accountId,
+        accountName: accounts.name,
+        categoryId: transactions.categoryId,
+        categoryName: categories.name,
+        amount: transactions.amount,
+        type: transactions.type,
+        description: transactions.description,
+        paymentMethod: transactions.paymentMethod,
+        details: transactions.details,
+        reference: transactions.reference,
+        balance: transactions.balance,
+        date: transactions.date,
+        createdAt: transactions.createdAt,
+      })
+      .from(transactions)
+      .leftJoin(accounts, eq(transactions.accountId, accounts.id))
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .where(eq(transactions.id, id))
+      .get() as Transaction ?? null;
   }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, memo } from 'react';
-import { DatePicker, InputNumber, Pagination, Space, Table } from 'antd';
+import { Button, DatePicker, Dropdown, InputNumber, Pagination, Space, Table } from 'antd';
+import { MoreOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table/index.js';
 import type { SorterResult } from 'antd/es/table/interface.js';
 import dayjs from 'dayjs';
@@ -58,6 +59,8 @@ interface TransactionTableProps {
   initialSearch?: string;
   onCategoryChange?: (id: string, categoryId: string | null) => void;
   onPaymentMethodChange?: (id: string, paymentMethod: string) => void;
+  onFixDescriptions?: (ids: string[]) => void;
+  onFixDescription?: (id: string) => void;
 }
 
 export function TransactionTable({
@@ -68,8 +71,10 @@ export function TransactionTable({
   pageAmountRange, onPageAmountRangeChange,
   pagePaymentMethods, onPagePaymentMethodsChange,
   onPageChange, onSort, onSearch, initialSearch,
-  onCategoryChange, onPaymentMethodChange,
+  onCategoryChange, onPaymentMethodChange, onFixDescriptions, onFixDescription,
 }: TransactionTableProps) {
+  const [bidiMode, setBidiMode] = useState(false);
+  const [selectedBidiIds, setSelectedBidiIds] = useState<string[]>([]);
   const [localSearch, setLocalSearch] = useState(initialSearch ?? '');
   const [localAmount, setLocalAmount] = useState({
     min: pageAmountRange?.min != null ? pageAmountRange.min / 100 : undefined as number | undefined,
@@ -106,7 +111,7 @@ export function TransactionTable({
 
   const columns: ColumnsType<Transaction> = [
     dateCol<Transaction>({ sorter: true, defaultSortOrder: 'descend' }),
-    descriptionCol<Transaction>({ sorter: undefined }),
+    descriptionCol<Transaction>({ sorter: undefined, width: 200 }),
     {
       title: 'Category', key: 'category', sorter: true, width: 180,
       render: (_: unknown, row: Transaction) => (
@@ -119,14 +124,30 @@ export function TransactionTable({
         />
       ),
     },
-    amountCol<Transaction>({ sorter: true, width: 130, fixed: 'right' }),
+    amountCol<Transaction>({ sorter: true, width: 120 }),
     { title: 'Account', dataIndex: 'accountName', key: 'account', sorter: true },
     {
-      title: 'Payment', key: 'paymentMethod', width: 140,
+      title: 'Payment', key: 'paymentMethod', width: 130,
       render: (_: unknown, row: Transaction) => (
         <PaymentMethodCell row={row} pmOptions={pmOptions} onPaymentMethodChange={onPaymentMethodChange} />
       ),
     },
+    ...(onFixDescription ? [{
+      title: '',
+      key: 'rowActions',
+      width: 30,
+      render: (_: unknown, row: Transaction) => (
+        <Dropdown
+          trigger={['click']}
+          menu={{
+            items: [{ key: 'flip', label: 'Flip text direction' }],
+            onClick: ({ key }) => { if (key === 'flip') onFixDescription(row.id); },
+          }}
+        >
+          <Button type="text" size="small" icon={<MoreOutlined />} />
+        </Dropdown>
+      ),
+    }] : []),
   ];
 
   function handleTableChange(_pagination: TablePaginationConfig, _filters: Record<string, unknown>, sorter: SorterResult<Transaction> | SorterResult<Transaction>[]) {
@@ -215,9 +236,13 @@ export function TransactionTable({
           columns={columns}
           rowKey="id"
           loading={isLoading}
-          scroll={{ x: 700 }}
+          scroll={undefined}
           pagination={false}
           onChange={handleTableChange}
+          rowSelection={bidiMode ? {
+            selectedRowKeys: selectedBidiIds,
+            onChange: keys => setSelectedBidiIds(keys as string[]),
+          } : undefined}
           rowClassName={(record: Transaction) => {
             const [year, month] = record.date.split('-').map(Number);
             return (year * 12 + month) % 2 === 0 ? styles.monthAlt : '';
@@ -225,13 +250,44 @@ export function TransactionTable({
         />
       </div>
       <div className={styles.paginationBar}>
+        {onFixDescriptions && (
+          <div className={styles.paginationBarLeft}>
+            {!bidiMode ? (
+              <Button size="small" onClick={() => { setBidiMode(true); setSelectedBidiIds([]); }}>
+                Fix BiDi
+              </Button>
+            ) : (
+              <Space size="small">
+                <Button
+                  size="small"
+                  type="primary"
+                  disabled={selectedBidiIds.length === 0}
+                  onClick={() => {
+                    onFixDescriptions(selectedBidiIds);
+                    setBidiMode(false);
+                    setSelectedBidiIds([]);
+                  }}
+                >
+                  Apply ({selectedBidiIds.length})
+                </Button>
+                <Button size="small" onClick={() => { setBidiMode(false); setSelectedBidiIds([]); }}>
+                  Cancel
+                </Button>
+              </Space>
+            )}
+          </div>
+        )}
         <Pagination
           current={page}
           pageSize={pageSize}
           total={total}
           showSizeChanger
           showTotal={t => `${t} transactions`}
-          onChange={(p, ps) => onPageChange(p, ps)}
+          onChange={(p, ps) => {
+            setBidiMode(false);
+            setSelectedBidiIds([]);
+            onPageChange(p, ps);
+          }}
         />
       </div>
     </div>

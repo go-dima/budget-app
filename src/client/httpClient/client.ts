@@ -1,5 +1,5 @@
 import type {
-  AccountSummary, TransactionsResponse, Category,
+  AccountSummary, TransactionsResponse, Category, Transaction,
   MonthlyTrendItem, TopCategoryItem,
   MonthlyReportRow, YearlyReportRow, CategoryReportRow, MonthDetailRow,
   ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse,
@@ -70,6 +70,8 @@ export const transactionsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
     }),
+  fixDescription: (id: string) =>
+    request<Transaction>(`/api/transactions/${id}/fix-description`, { method: 'PATCH' }),
 };
 
 export const categoriesApi = {
@@ -179,11 +181,11 @@ export const importApi = {
     form.append('file', file);
     return request<ImportPreviewResponse>('/api/import/preview', { method: 'POST', body: form });
   },
-  execute: (fileId: string, filename: string, sheetNameOverrides?: Record<string, string>, selectedSheets?: string[], columnMapping?: ColumnMappingMap, headerRowOverrides?: Record<string, number>) =>
+  execute: (fileId: string, filename: string, sheetNameOverrides?: Record<string, string>, selectedSheets?: string[], columnMapping?: ColumnMappingMap, headerRowOverrides?: Record<string, number>, fixBidi?: boolean) =>
     request<ImportExecuteResponse>('/api/import/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId, filename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides }),
+      body: JSON.stringify({ fileId, filename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides, fixBidi }),
     }),
   reset: () => request<{ success: boolean }>('/api/import/reset', { method: 'DELETE' }),
 };

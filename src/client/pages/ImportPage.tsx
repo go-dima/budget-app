@@ -104,7 +104,7 @@ export function ImportPage() {
             preview={{ ...preview, sheets: preview.sheets.filter(s => !skippedSheets.includes(s.sheetName)) }}
             availableAccounts={availableAccounts}
             initialNameOverrides={Object.keys(pendingAccountOverrides).length > 0 ? pendingAccountOverrides : undefined}
-            onConfirm={(overrides, sheets) => handleConfirm(overrides, sheets)}
+            onConfirm={(overrides, sheets, fixBidi) => handleConfirm(overrides, sheets, undefined, fixBidi)}
             isLoading={isLoading}
           />
         </div>

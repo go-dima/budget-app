@@ -92,4 +92,19 @@ describe('TransactionService', () => {
     const txnResult = service.list().transactions.find(t => t.id === id);
     expect(txnResult?.paymentMethod).toBe('כרטיס אשראי');
   });
+
+  it('fixDescription fixes visual-order Hebrew words and segment order', () => {
+    // '\u202d34685693/\u202dםיסנניפ טיא סקמ'
+    //   → strip bidi → '34685693/םיסנניפ טיא סקמ'
+    //   → fix segment 'םיסנניפ טיא סקמ': reverse each Hebrew word + reverse word order → 'מקס איט פיננסים'
+    //   → reverse segment order → 'מקס איט פיננסים/34685693'
+    const [id] = service.insert([txn({ description: '\u202d34685693/\u202dםיסנניפ טיא סקמ' })]);
+    const updated = service.fixDescription(id!);
+    expect(updated).not.toBeNull();
+    expect(updated!.description).toBe('מקס איט פיננסים/34685693');
+  });
+
+  it('fixDescription returns null for unknown id', () => {
+    expect(service.fixDescription('nonexistent')).toBeNull();
+  });
 });

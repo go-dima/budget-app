@@ -72,4 +72,15 @@ router.post('/bulk-delete', (req, res) => {
   }
 });
 
+router.patch('/:id/fix-description', (req, res) => {
+  try {
+    const service = new TransactionService(dbManager.getDb());
+    const updated = service.fixDescription(req.params.id);
+    if (!updated) return res.status(404).json({ error: 'Transaction not found' });
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 export default router;

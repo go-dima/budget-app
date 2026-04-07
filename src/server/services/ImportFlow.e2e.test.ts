@@ -16,7 +16,7 @@ import { CategoryService } from './CategoryService.js';
 import type { DB } from '../../db/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const FLOW_TEST_XLSX = join(__dirname, '../../../data/Flow Test.xlsx');
+const FLOW_TEST_XLSX = join(__dirname, '../../../data/ImportDataTest.xlsx');
 
 // ── Expected values (derived from data/Flow Test.xlsx) ───────────────────────
 const EXPECTED = {
@@ -50,7 +50,7 @@ beforeAll(() => {
 // ── Test 1: Import flow ──────────────────────────────────────────────────────
 describe('Import flow', () => {
   it('preview returns expected sheet metadata', () => {
-    const preview = importSvc.previewFile(fileBuffer, 'Flow Test.xlsx');
+    const preview = importSvc.previewFile(fileBuffer, 'ImportDataTest.xlsx');
 
     expect(preview.sheets).toHaveLength(1);
     const sheet = preview.sheets[0]!;
@@ -60,8 +60,8 @@ describe('Import flow', () => {
   });
 
   it('execute imports all rows with no duplicates', () => {
-    const preview = importSvc.previewFile(fileBuffer, 'Flow Test.xlsx');
-    const result = importSvc.executeImport(preview.fileId, 'Flow Test.xlsx');
+    const preview = importSvc.previewFile(fileBuffer, 'ImportDataTest.xlsx');
+    const result = importSvc.executeImport(preview.fileId, 'ImportDataTest.xlsx');
 
     expect(result.success).toBe(true);
     expect(result.totalNew).toBe(EXPECTED.totalTransactions);
@@ -76,8 +76,8 @@ describe('Import flow', () => {
   });
 
   it('re-importing the same file skips all rows as duplicates', () => {
-    const preview = importSvc.previewFile(fileBuffer, 'Flow Test.xlsx');
-    const result = importSvc.executeImport(preview.fileId, 'Flow Test.xlsx');
+    const preview = importSvc.previewFile(fileBuffer, 'ImportDataTest.xlsx');
+    const result = importSvc.executeImport(preview.fileId, 'ImportDataTest.xlsx');
 
     expect(result.totalNew).toBe(0);
     expect(result.totalSkipped).toBe(EXPECTED.totalTransactions);
@@ -128,8 +128,8 @@ describe('Category mapping fetch', () => {
   });
 
   it('lookupCategory returns the preferred category for a known description', () => {
-    // "מתש קבע-י" appears in the file mapped to "הכנסה"
-    const categoryId = mappingSvc.lookupCategory(EXPECTED.sheetName, 'מתש קבע-י');
+    // "הכנסה חודשית" appears in the file mapped to "הכנסה"
+    const categoryId = mappingSvc.lookupCategory(EXPECTED.sheetName, 'הכנסה חודשית');
     expect(categoryId).not.toBeNull();
 
     const category = categorySvc.getAll().find(c => c.id === categoryId);

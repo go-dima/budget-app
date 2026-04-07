@@ -65,7 +65,7 @@ export function useImportFlow() {
     setStep(needsColumnMapping ? 'columnMapping' : 'preview');
   }
 
-  async function handleConfirm(sheetNameOverrides: Record<string, string> = {}, selectedSheets: string[] = [], columnMapping?: ColumnMappingMap) {
+  async function handleConfirm(sheetNameOverrides: Record<string, string> = {}, selectedSheets: string[] = [], columnMapping?: ColumnMappingMap, fixBidi?: boolean) {
     if (!preview) return;
     // Merge account overrides from column mapping step (pendingAccountOverrides) with
     // any sheet-level name overrides from the preview step (sheetNameOverrides).
@@ -76,7 +76,7 @@ export function useImportFlow() {
     setStep('importing');
     setIsLoading(true);
     try {
-      const data = await importApi.execute(preview.fileId, currentFilename, mergedOverrides, selectedSheets, resolvedMapping, headerRowOverrides);
+      const data = await importApi.execute(preview.fileId, currentFilename, mergedOverrides, selectedSheets, resolvedMapping, headerRowOverrides, fixBidi);
       setResult(data);
       setReviewTransactions(data.transactionsForReview);
       const hasSuccess = data.results.some(r => r.error === null);

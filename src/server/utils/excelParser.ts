@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 // Hebrew column name to field mapping
 export const COLUMN_MAPPING: Record<string, string> = {
   תאריך: 'date',
+  'תאריך תנועה': 'date',       // OZ bank
   תיאור: 'description',
   'אמצעי תשלום': 'payment_method',
   קטגוריה: 'category',
@@ -11,6 +12,7 @@ export const COLUMN_MAPPING: Record<string, string> = {
   אסמכתא: 'reference',
   חובה: 'expense',
   זכות: 'income',
+  'סכום פעולה': 'amount',      // OZ bank — signed: negative = expense
   יתרה: 'balance',
 };
 
@@ -103,6 +105,12 @@ export function parseAmount(value: unknown): number {
   return isNaN(num) ? 0 : Math.round(num * 100);
 }
 
+/** Strips Unicode bidirectional control characters from a string (common in RTL bank exports). */
+function stripBidiMarks(s: string): string {
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/[\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069]/g, '').trim();
+}
+
 export interface ParsedTransaction {
   date: string;           // YYYY-MM-DD
   description: string;
@@ -178,7 +186,7 @@ export function parseSheet(sheet: XLSX.WorkSheet, customMap?: Record<string, str
     const row = rows[i];
     if (!row || row.every(c => c == null)) continue;
 
-    const txn: Partial<ParsedTransaction & { expense: unknown; income: unknown; balance: unknown }> = {};
+    const txn: Partial<ParsedTransaction & { expense: unknown; income: unknown; amount: unknown; balance: unknown }> = {};
 
     for (const [col, field] of columnIndices) {
       const val = col < row.length ? row[col] : null;
@@ -189,6 +197,8 @@ export function parseSheet(sheet: XLSX.WorkSheet, customMap?: Record<string, str
         txn.expense = val;
       } else if (field === 'income') {
         txn.income = val;
+      } else if (field === 'amount') {
+        txn.amount = val;
       } else if (field === 'balance') {
         txn.balance = val;
       } else {
@@ -198,15 +208,19 @@ export function parseSheet(sheet: XLSX.WorkSheet, customMap?: Record<string, str
 
     if (!txn.date || !txn.description) continue;
 
+    const signedAmount = parseAmount(txn.amount);
+    const expenseAgorot = txn.expense != null ? parseAmount(txn.expense) : (signedAmount < 0 ? -signedAmount : 0);
+    const incomeAgorot  = txn.income  != null ? parseAmount(txn.income)  : (signedAmount > 0 ? signedAmount  : 0);
+
     result.push({
       date: txn.date,
-      description: txn.description as string,
+      description: stripBidiMarks(String(txn.description ?? '')),
       paymentMethod: ((txn as Record<string, unknown>)['payment_method'] as string | null) ?? null,
       category: (txn.category as string | null) ?? '',
       details: (txn.details as string | null) ?? null,
       reference: (txn.reference as string | null) ?? null,
-      expenseAgorot: parseAmount(txn.expense),
-      incomeAgorot: parseAmount(txn.income),
+      expenseAgorot,
+      incomeAgorot,
       balanceAgorot: parseAmount(txn.balance),
     });
   }
@@ -292,28 +306,33 @@ export function parseRawRows(rows: string[][], headerRowIdx: number, customMap?:
     const row = rows[i];
     if (!row || row.every(c => !c)) continue;
 
-    const txn: Partial<ParsedTransaction & { expense: unknown; income: unknown; balance: unknown }> = {};
+    const txn: Partial<ParsedTransaction & { expense: unknown; income: unknown; amount: unknown; balance: unknown }> = {};
 
     for (const [col, field] of columnIndices) {
       const val = row[col] ?? null;
       if (field === 'date')           { txn.date = parseDate(val) ?? undefined; }
       else if (field === 'expense')   { txn.expense = val; }
       else if (field === 'income')    { txn.income  = val; }
+      else if (field === 'amount')    { txn.amount  = val; }
       else if (field === 'balance')   { txn.balance = val; }
       else { (txn as Record<string, string | null>)[field] = val ? String(val).trim() : null; }
     }
 
     if (!txn.date || !txn.description) continue;
 
+    const signedAmount = parseAmount(txn.amount);
+    const expenseAgorot = txn.expense != null ? parseAmount(txn.expense) : (signedAmount < 0 ? -signedAmount : 0);
+    const incomeAgorot  = txn.income  != null ? parseAmount(txn.income)  : (signedAmount > 0 ? signedAmount  : 0);
+
     result.push({
       date: txn.date,
-      description: txn.description as string,
+      description: stripBidiMarks(String(txn.description ?? '')),
       paymentMethod: ((txn as Record<string, unknown>)['payment_method'] as string | null) ?? null,
       category: (txn.category as string | null) ?? '',
       details: (txn.details as string | null) ?? null,
       reference: (txn.reference as string | null) ?? null,
-      expenseAgorot: parseAmount(txn.expense),
-      incomeAgorot:  parseAmount(txn.income),
+      expenseAgorot,
+      incomeAgorot,
       balanceAgorot: parseAmount(txn.balance),
     });
   }

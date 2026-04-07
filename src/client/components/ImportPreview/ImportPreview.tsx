@@ -3,6 +3,7 @@ import { Alert, Button, Card, Checkbox, Table, Tag, Typography } from 'antd';
 import type { ImportPreviewResponse } from '../../../shared/types.js';
 import { amountCol, dateCol, descriptionColSimple } from '../tableColumns.js';
 import { AccountSelector } from '../AccountSelector/AccountSelector.js';
+import { fixBidiVisualOrder } from '../../../shared/bidiUtils.js';
 
 const { Text } = Typography;
 
@@ -10,7 +11,7 @@ interface ImportPreviewProps {
   preview: ImportPreviewResponse;
   availableAccounts: string[];
   initialNameOverrides?: Record<string, string>;
-  onConfirm: (sheetNameOverrides: Record<string, string>, selectedSheets: string[]) => void;
+  onConfirm: (sheetNameOverrides: Record<string, string>, selectedSheets: string[], fixBidi: boolean) => void;
   isLoading: boolean;
 }
 
@@ -26,6 +27,7 @@ export function ImportPreview({ preview, availableAccounts, initialNameOverrides
   const [selectedSheets, setSelectedSheets] = useState<Set<string>>(
     () => new Set(validSheets.filter(s => s.existingAccount !== null).map(s => s.sheetName))
   );
+  const [fixBidi, setFixBidi] = useState(false);
 
   function handleAccountChange(sheetName: string, accountName: string) {
     setNameOverrides(prev => ({ ...prev, [sheetName]: accountName }));
@@ -45,7 +47,7 @@ export function ImportPreview({ preview, availableAccounts, initialNameOverrides
       const trimmed = name.trim();
       if (trimmed) overrides[orig] = trimmed;
     }
-    onConfirm(overrides, Array.from(selectedSheets));
+    onConfirm(overrides, Array.from(selectedSheets), fixBidi);
   }
 
   const selectedCount = selectedSheets.size;
@@ -53,7 +55,9 @@ export function ImportPreview({ preview, availableAccounts, initialNameOverrides
   type SampleRow = { date: string; description: string; category: string; amount: number };
   const sampleColumns = [
     dateCol<SampleRow>(),
-    descriptionColSimple<SampleRow>(),
+    descriptionColSimple<SampleRow>({
+      render: (v: string) => <span dir="rtl">{fixBidi ? fixBidiVisualOrder(v) : v}</span>,
+    }),
     { title: 'Category', dataIndex: 'category', key: 'category', render: (v: string) => <span dir="rtl">{v}</span> },
     amountCol<SampleRow>(),
   ];
@@ -114,6 +118,12 @@ export function ImportPreview({ preview, availableAccounts, initialNameOverrides
           </Card>
         );
       })}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+        <Checkbox checked={fixBidi} onChange={e => setFixBidi(e.target.checked)}>
+          Fix reversed Hebrew text (BiDi)
+        </Checkbox>
+      </div>
 
       <Button
         type="primary"

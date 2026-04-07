@@ -90,6 +90,16 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
     reload();
   }
 
+  async function handleFixDescriptions(ids: string[]) {
+    await Promise.all(ids.map(id => transactionsApi.fixDescription(id)));
+    reload();
+  }
+
+  async function handleFixDescription(id: string) {
+    await transactionsApi.fixDescription(id);
+    reload();
+  }
+
   const isEmpty = !isLoading && data.total === 0 && !filters.search && pageCategoryIds.length === 0 && pageAccountIds.length === 0;
 
   if (isEmpty) {
@@ -151,6 +161,8 @@ export function TransactionsPage({ searchTerm }: TransactionsPageProps = {}) {
         }}
         onCategoryChange={handleCategoryChange}
         onPaymentMethodChange={handlePaymentMethodChange}
+        onFixDescriptions={handleFixDescriptions}
+        onFixDescription={handleFixDescription}
       />
     </div>
   );
