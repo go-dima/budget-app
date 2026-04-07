@@ -1,6 +1,9 @@
 services:
   budget-app:
-    build: .
+    build:
+      context: .
+      # args:
+      #   BUILD_MEMORY_MB: 1024
     ports:
       - "3000:3001"
     volumes:

@@ -12,19 +12,24 @@ COPY package*.json ./
 RUN npm ci
 
 # ── Stage 2: test ─────────────────────────────────────────────────────────────
-# Runs the full test suite. The app stage depends on this stage, so a failing
-# test prevents the production image from being built.
+# Runs the full test suite. Used by CI on native amd64 before the ARM build.
 FROM base AS test
 
 COPY . .
 RUN npm test
 
 # ── Stage 3: app ──────────────────────────────────────────────────────────────
-# Builds the production bundle and produces the final runnable image.
-# Inherits from `test` so tests must pass before this stage is reached.
-FROM test AS app
+# Builds the production bundle. Derives from base (not test) so the ARM build
+# can skip the test stage — tests are gated by the separate CI test job.
+FROM base AS app
 
-RUN npm run build
+# Split frontend and server builds to reduce peak memory usage on low-RAM hosts
+ARG BUILD_MEMORY_MB
+
+COPY . .
+RUN if [ -n "$BUILD_MEMORY_MB" ]; then export NODE_OPTIONS="--max-old-space-size=$BUILD_MEMORY_MB"; fi \
+    && npx vite build
+RUN npx tsc -p tsconfig.server.json && cp -r src/db/migrations dist/db/migrations
 
 RUN mkdir -p /app/data
 
