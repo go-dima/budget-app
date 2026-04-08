@@ -110,10 +110,10 @@ export function TransactionTable({
   );
 
   const columns: ColumnsType<Transaction> = [
-    dateCol<Transaction>({ sorter: true, defaultSortOrder: 'descend' }),
-    descriptionCol<Transaction>({ sorter: undefined, width: 200 }),
+    dateCol<Transaction>({ sorter: true, defaultSortOrder: 'descend', width: 100 }),
+    descriptionCol<Transaction>({ sorter: undefined, width: 260 }),
     {
-      title: 'Category', key: 'category', sorter: true, width: 180,
+      title: 'Category', key: 'category', sorter: true, width: 120,
       render: (_: unknown, row: Transaction) => (
         <SearchableDropdown
           value={row.categoryId ?? null}
@@ -124,10 +124,10 @@ export function TransactionTable({
         />
       ),
     },
-    amountCol<Transaction>({ sorter: true, width: 120 }),
-    { title: 'Account', dataIndex: 'accountName', key: 'account', sorter: true },
+    amountCol<Transaction>({ sorter: true, width: 100 }),
+    { title: 'Account', dataIndex: 'accountName', key: 'account', sorter: true, width: 120 },
     {
-      title: 'Payment', key: 'paymentMethod', width: 130,
+      title: 'Payment', key: 'paymentMethod', width: 100,
       render: (_: unknown, row: Transaction) => (
         <PaymentMethodCell row={row} pmOptions={pmOptions} onPaymentMethodChange={onPaymentMethodChange} />
       ),
@@ -236,7 +236,7 @@ export function TransactionTable({
           columns={columns}
           rowKey="id"
           loading={isLoading}
-          scroll={undefined}
+          scroll={{ x: 1030 }}
           pagination={false}
           onChange={handleTableChange}
           rowSelection={bidiMode ? {
@@ -293,4 +293,3 @@ export function TransactionTable({
     </div>
   );
 }
-
