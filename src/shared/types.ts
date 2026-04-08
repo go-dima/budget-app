@@ -263,3 +263,11 @@ export interface ImportExecuteResponse {
   totalSkipped: number;
   transactionsForReview: ImportedTransactionReview[];
 }
+
+export interface ImportCommitRequest {
+  fileId: string;
+  filename: string;
+  categoryOverrides: Record<string, string | null>;
+  pmOverrides: Record<string, string>;
+  skippedIds: string[];
+}

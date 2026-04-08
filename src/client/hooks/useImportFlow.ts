@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { message, notification } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { categoryMappingApi, databasesApi, importApi, paymentMappingApi, transactionsApi } from '../httpClient/client.js';
+import { categoryMappingApi, databasesApi, importApi, paymentMappingApi } from '../httpClient/client.js';
 import { useFilters } from '../contexts/FilterContext.js';
 import type { DbEntry, ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse, ImportedTransactionReview, ColumnMappingMap } from '../../shared/types.js';
 
@@ -25,6 +25,7 @@ export function useImportFlow() {
   // column mapping confirmed in ColumnMappingStep, held until preview is confirmed
   const [pendingColumnMapping, setPendingColumnMapping] = useState<ColumnMappingMap | undefined>(undefined);
   const [pendingAccountOverrides, setPendingAccountOverrides] = useState<Record<string, string>>({});
+  const [pendingCommit, setPendingCommit] = useState<{ fileId: string; filename: string } | null>(null);
 
   const loadStatus = useCallback(() => {
     importApi.getStatus().then(setStatus).catch(console.error);
@@ -80,9 +81,14 @@ export function useImportFlow() {
       setResult(data);
       setReviewTransactions(data.transactionsForReview);
       const hasSuccess = data.results.some(r => r.error === null);
-      // Only advance to review if at least one sheet imported successfully
-      setStep(hasSuccess ? 'review' : 'summary');
-      if (!hasSuccess) runMappingRecalculation();
+      if (hasSuccess) {
+        // Stage the commit info — actual DB write happens after review
+        setPendingCommit({ fileId: preview.fileId, filename: currentFilename });
+        setStep('review');
+      } else {
+        setStep('summary');
+        runMappingRecalculation();
+      }
       loadStatus();
     } catch (e) {
       message.error(`Import failed: ${String(e)}`);
@@ -103,15 +109,18 @@ export function useImportFlow() {
     pmOverrides: Record<string, string>,
     skippedIds: string[],
   ) {
+    if (!pendingCommit) return;
     setIsLoading(true);
     try {
-      const categoryUpdates = Object.entries(categoryOverrides).map(([id, categoryId]) => ({ id, categoryId }));
-      const pmUpdates = Object.entries(pmOverrides).map(([id, paymentMethod]) => ({ id, paymentMethod }));
-      await Promise.all([
-        categoryUpdates.length > 0 ? transactionsApi.bulkCategorize(categoryUpdates) : Promise.resolve(),
-        pmUpdates.length > 0 ? transactionsApi.bulkSetPaymentMethod(pmUpdates) : Promise.resolve(),
-        skippedIds.length > 0 ? transactionsApi.bulkDelete(skippedIds) : Promise.resolve(),
-      ]);
+      const data = await importApi.commit({
+        fileId: pendingCommit.fileId,
+        filename: pendingCommit.filename,
+        categoryOverrides,
+        pmOverrides,
+        skippedIds,
+      });
+      setResult(data);
+      setPendingCommit(null);
       refreshAll();
       runMappingRecalculation();
       setStep('summary');
@@ -163,6 +172,7 @@ export function useImportFlow() {
     setStep('status');
     setPreview(null);
     setResult(null);
+    setPendingCommit(null);
     loadStatus();
   }
 

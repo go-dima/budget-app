@@ -38,6 +38,15 @@ router.post('/execute', (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
+router.post('/commit', (req, res) => {
+  try {
+    const body = req.body as import('../../shared/types.js').ImportCommitRequest;
+    if (!body.fileId) return res.status(400).json({ error: 'fileId required' });
+    const service = new ImportService(dbManager.getDb());
+    res.json(service.commitImport(body));
+  } catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
 router.delete('/reset', (_req, res) => {
   try {
     const service = new ImportService(dbManager.getDb());

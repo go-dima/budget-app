@@ -11,6 +11,7 @@ import type {
   ImportPreviewSheet,
   ImportExecuteResponse,
   ImportedTransactionReview,
+  ImportCommitRequest,
   ColumnMappingMap,
   ColumnMappingEntry,
   ColumnMappingTarget,
@@ -28,6 +29,22 @@ import { PaymentMappingService } from './PaymentMappingService.js';
 import { TransactionService } from './TransactionService.js';
 import { fixBidiVisualOrder } from '../../shared/bidiUtils.js';
 import { shouldSuggestBidiFix } from '../../shared/bidiUtils.js';
+
+interface StagedRow {
+  tempId: string;
+  sheetName: string;
+  accountId: string;
+  accountName: string;
+  amount: number;
+  type: 'income' | 'expense' | 'transfer';
+  description: string;
+  paymentMethod: string | null;
+  details: string | null;
+  reference: string | null;
+  balance: number | null;
+  date: string;
+  categoryId: string | null;
+}
 
 export class ImportService {
   private accountSvc: AccountService;
@@ -159,6 +176,8 @@ export class ImportService {
     return { fileId, sheets, suggestFixBidi: shouldSuggestBidiFix(previewDescriptions) };
   }
 
+  /** Parses and deduplicates the file, resolves category/PM mappings, and stages the result.
+   * Nothing is written to the transactions table. Call commitImport() after the user approves. */
   executeImport(fileId: string, filename: string, sheetNameOverrides: Record<string, string> = {}, selectedSheets?: string[], columnMapping?: ColumnMappingMap, headerRowOverrides?: Record<string, number>, fixBidi?: boolean): ImportExecuteResponse {
     const setting = this.db.select().from(settings).where(eq(settings.key, `tmp:${fileId}`)).get();
 
@@ -169,7 +188,6 @@ export class ImportService {
     const buffer = readFileSync(setting.value);
     const html = isHtmlFile(buffer);
 
-    // Build sheet name → rows mapping (HTML or XLSX)
     let sheetEntries: [string, { sheet?: XLSX.WorkSheet; rawRows?: string[][] }][];
     if (html) {
       const htmlSheets = extractHtmlSheets(buffer);
@@ -183,8 +201,10 @@ export class ImportService {
     let totalNew = 0;
     let totalSkipped = 0;
     const transactionsForReview: ImportedTransactionReview[] = [];
+    const stagedRows: StagedRow[] = [];
     const mappingSvc = new CategoryMappingService(this.db);
     const colSvc = new ColumnMappingService(this.db);
+    const pmMappingSvc = new PaymentMappingService(this.db);
 
     const allCategories = this.categorySvc.getAll();
     const catNameMap = new Map(allCategories.map(c => [c.id, c.name]));
@@ -222,6 +242,7 @@ export class ImportService {
         }
         if (fixBidi) parsed = parsed.map(t => ({ ...t, description: fixBidiVisualOrder(t.rawDescription) }));
         if (parsed.length === 0) continue;
+
         const account = this.accountSvc.findOrCreate(accountName);
 
         const candidates = parsed.map(t => ({
@@ -237,7 +258,7 @@ export class ImportService {
           date: t.date,
         }));
 
-        // Resolve categories
+        // Resolve categories from file data
         for (let i = 0; i < candidates.length; i++) {
           const raw = parsed[i]!;
           if (raw.category) {
@@ -246,49 +267,34 @@ export class ImportService {
           }
         }
 
-        // Deduplicate
+        // Deduplicate — no DB insert yet
         const dupeFlags = this.txnSvc.findDuplicates(account.id, candidates);
         const newRows = candidates.filter((_, i) => !dupeFlags[i]);
         const skipped = candidates.length - newRows.length;
 
-        // Insert in batches of 500 and collect IDs
-        const insertedIds: string[] = [];
-        for (let i = 0; i < newRows.length; i += 500) {
-          const ids = this.txnSvc.insert(newRows.slice(i, i + 500));
-          insertedIds.push(...ids);
-        }
-        const inserted = insertedIds.length;
-
-        // Apply category + payment method mappings, collect review rows
-        const pmMappingSvc = new PaymentMappingService(this.db);
-        const mappingUpdates: { id: string; categoryId: string }[] = [];
-        const paymentMethodUpdates: { id: string; paymentMethod: string }[] = [];
-
-        for (let i = 0; i < newRows.length; i++) {
-          const row = newRows[i]!;
-          const rowId = insertedIds[i]!;
-
-          // Category
-          let resolvedCategoryId = row.categoryId;
+        // Resolve mappings and build review + staged rows
+        for (const row of newRows) {
+          const tempId = nanoid();
           const catMapping = mappingSvc.getMappingFor(accountName, row.description);
+          let resolvedCategoryId = row.categoryId;
           if (resolvedCategoryId === null) {
-            const mappedCatId = catMapping?.preferredCategoryId ?? null;
-            if (mappedCatId !== null) {
-              mappingUpdates.push({ id: rowId, categoryId: mappedCatId });
-              resolvedCategoryId = mappedCatId;
-            }
+            resolvedCategoryId = catMapping?.preferredCategoryId ?? null;
           }
-
-          // Payment method
-          let resolvedPm = row.paymentMethod;
           const pmMapping = pmMappingSvc.getMappingFor(accountName, row.description);
-          if (resolvedPm === null && pmMapping?.preferred) {
-            resolvedPm = pmMapping.preferred;
-            paymentMethodUpdates.push({ id: rowId, paymentMethod: resolvedPm });
-          }
+          const resolvedPm = row.paymentMethod ?? (pmMapping?.preferred ?? null);
+
+          stagedRows.push({
+            tempId,
+            sheetName,
+            accountId: account.id,
+            accountName: account.name,
+            ...row,
+            categoryId: resolvedCategoryId,
+            paymentMethod: resolvedPm,
+          });
 
           transactionsForReview.push({
-            id: rowId,
+            id: tempId,
             accountName: account.name,
             date: row.date,
             description: row.description,
@@ -304,33 +310,111 @@ export class ImportService {
           });
         }
 
-        if (mappingUpdates.length > 0) this.txnSvc.bulkSetCategory(mappingUpdates);
-        if (paymentMethodUpdates.length > 0) this.txnSvc.bulkSetPaymentMethod(paymentMethodUpdates);
-
-        this.db.insert(importLogs).values({
-          id: nanoid(),
-          filename,
-          accountId: account.id,
-          rowCount: inserted,
-          importedAt: Math.floor(Date.now() / 1000),
-        }).run();
-
-        results.push({ sheetName, accountName: account.name, newTransactions: inserted, duplicatesSkipped: skipped, error: null });
-        totalNew += inserted;
+        results.push({ sheetName, accountName: account.name, newTransactions: newRows.length, duplicatesSkipped: skipped, error: null });
+        totalNew += newRows.length;
         totalSkipped += skipped;
       } catch (e) {
         results.push({ sheetName, accountName: sheetName, newTransactions: 0, duplicatesSkipped: 0, error: String(e) });
       }
     }
 
-    // Cleanup
-    try {
-      unlinkSync(setting.value);
-      this.db.delete(settings).where(eq(settings.key, `tmp:${fileId}`)).run();
-    } catch {}
+    // Persist staged rows so commitImport can write them later
+    const stagedKey = `tmp:staged:${fileId}`;
+    this.db.insert(settings)
+      .values({ key: stagedKey, value: JSON.stringify(stagedRows) })
+      .onConflictDoUpdate({ target: settings.key, set: { value: JSON.stringify(stagedRows) } })
+      .run();
 
     transactionsForReview.sort(byDateDesc);
     return { success: results.every(r => r.error === null), results, totalNew, totalSkipped, transactionsForReview };
+  }
+
+  /** Commits staged rows to the DB after user approval.
+   * Applies category/PM overrides from the review step, skips rejected rows. */
+  commitImport({ fileId, filename, categoryOverrides, pmOverrides, skippedIds }: ImportCommitRequest): ImportExecuteResponse {
+    const stagedKey = `tmp:staged:${fileId}`;
+    const stagedSetting = this.db.select().from(settings).where(eq(settings.key, stagedKey)).get();
+    if (!stagedSetting) {
+      return { success: false, results: [], totalNew: 0, totalSkipped: 0, transactionsForReview: [] };
+    }
+
+    const allStaged: StagedRow[] = JSON.parse(stagedSetting.value);
+    const skippedSet = new Set(skippedIds);
+    const toInsert = allStaged.filter(r => !skippedSet.has(r.tempId));
+
+    // Apply user overrides
+    for (const row of toInsert) {
+      if (row.tempId in categoryOverrides) row.categoryId = categoryOverrides[row.tempId]!;
+      if (row.tempId in pmOverrides) row.paymentMethod = pmOverrides[row.tempId]!;
+    }
+
+    // Group by sheet for result reporting
+    const bySheet = new Map<string, { accountName: string; rows: StagedRow[] }>();
+    for (const row of toInsert) {
+      if (!bySheet.has(row.sheetName)) bySheet.set(row.sheetName, { accountName: row.accountName, rows: [] });
+      bySheet.get(row.sheetName)!.rows.push(row);
+    }
+
+    const results: ImportExecuteResponse['results'] = [];
+    let totalNew = 0;
+
+    for (const [sheetName, { accountName, rows }] of bySheet) {
+      try {
+        const insertPayload = rows.map(r => ({
+          accountId: r.accountId,
+          categoryId: r.categoryId,
+          amount: r.amount,
+          type: r.type,
+          description: r.description,
+          paymentMethod: r.paymentMethod,
+          details: r.details,
+          reference: r.reference,
+          balance: r.balance,
+          date: r.date,
+        }));
+
+        const insertedIds: string[] = [];
+        for (let i = 0; i < insertPayload.length; i += 500) {
+          const ids = this.txnSvc.insert(insertPayload.slice(i, i + 500));
+          insertedIds.push(...ids);
+        }
+
+        // Apply category + PM to newly inserted rows
+        const categoryUpdates = insertedIds
+          .map((id, i) => ({ id, categoryId: rows[i]!.categoryId }))
+          .filter((u): u is { id: string; categoryId: string } => u.categoryId !== null);
+        const pmUpdates = insertedIds
+          .map((id, i) => ({ id, paymentMethod: rows[i]!.paymentMethod }))
+          .filter((u): u is { id: string; paymentMethod: string } => u.paymentMethod !== null);
+
+        if (categoryUpdates.length > 0) this.txnSvc.bulkSetCategory(categoryUpdates);
+        if (pmUpdates.length > 0) this.txnSvc.bulkSetPaymentMethod(pmUpdates);
+
+        const accountId = rows[0]!.accountId;
+        this.db.insert(importLogs).values({
+          id: nanoid(),
+          filename,
+          accountId,
+          rowCount: insertedIds.length,
+          importedAt: Math.floor(Date.now() / 1000),
+        }).run();
+
+        results.push({ sheetName, accountName, newTransactions: insertedIds.length, duplicatesSkipped: 0, error: null });
+        totalNew += insertedIds.length;
+      } catch (e) {
+        results.push({ sheetName, accountName, newTransactions: 0, duplicatesSkipped: 0, error: String(e) });
+      }
+    }
+
+    // Cleanup temp file + staged record
+    const tmpSetting = this.db.select().from(settings).where(eq(settings.key, `tmp:${fileId}`)).get();
+    if (tmpSetting) {
+      try { unlinkSync(tmpSetting.value); } catch {}
+      this.db.delete(settings).where(eq(settings.key, `tmp:${fileId}`)).run();
+    }
+    this.db.delete(settings).where(eq(settings.key, stagedKey)).run();
+
+    return { success: results.every(r => r.error === null), results, totalNew, totalSkipped: skippedIds.length, transactionsForReview: [] };
   }
 
   reset(): void {
