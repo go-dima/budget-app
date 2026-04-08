@@ -129,7 +129,7 @@ export function useImportFlow() {
     ]).then(([cat, pm]) => {
       const total = cat.updated + pm.updated;
       notification.success({
-        message: 'Mappings applied',
+        title: 'Mappings applied',
         description: total > 0
           ? `${cat.updated} category and ${pm.updated} payment assignments applied.`
           : 'No new mappings to apply.',
@@ -138,7 +138,7 @@ export function useImportFlow() {
       });
     }).catch(() => {
       notification.error({
-        message: 'Mapping recalculation failed',
+        title: 'Mapping recalculation failed',
         description: 'Categories and payment methods could not be recalculated. You can retry from the mapping pages.',
         placement: 'top',
         duration: 0,

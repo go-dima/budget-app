@@ -9,6 +9,7 @@ export const Default: Story = {
   args: {
     preview: {
       fileId: 'test-id',
+      suggestFixBidi: false,
       sheets: [{
         sheetName: 'Bank Leumi',
         rowCount: 312,

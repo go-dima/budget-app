@@ -1,4 +1,6 @@
 const HEBREW_RE = /[\u05B0-\u05EA]/;
+export const BIDI_CONTROL_RE = /[\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069]/;
+export const BIDI_CONTROL_RE_GLOBAL = /[\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069]/g;
 
 /**
  * For a single '/'-delimited segment: reverses characters within each Hebrew word AND
@@ -47,7 +49,26 @@ function fixSegment(seg: string): string {
  * 5. Rejoin with '/'.
  */
 export function fixBidiVisualOrder(text: string): string {
-  // eslint-disable-next-line no-control-regex
-  const stripped = text.replace(/[\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069]/g, '').trim();
+  if (!BIDI_CONTROL_RE.test(text)) return text.trim();
+  const stripped = text.replace(BIDI_CONTROL_RE_GLOBAL, '').trim();
   return stripped.split('/').map(fixSegment).reverse().join('/');
+}
+
+/** Like fixBidiVisualOrder but skips the control-char guard.
+ * Use when the text has already been stripped (e.g. stored in DB) but is still in visual order. */
+export function fixBidiVisualOrderForce(text: string): string {
+  const stripped = text.replace(BIDI_CONTROL_RE_GLOBAL, '').trim();
+  return stripped.split('/').map(fixSegment).reverse().join('/');
+}
+
+export function hasBidiControlChars(text: string): boolean {
+  return BIDI_CONTROL_RE.test(text);
+}
+
+export function shouldSuggestBidiFix(texts: string[]): boolean {
+  const hebrewTexts = texts.filter(text => HEBREW_RE.test(text));
+  if (hebrewTexts.length === 0) return false;
+
+  const controlMarked = hebrewTexts.filter(hasBidiControlChars).length;
+  return controlMarked > 0;
 }

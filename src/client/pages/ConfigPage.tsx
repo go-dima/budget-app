@@ -9,7 +9,7 @@ import styles from './ConfigPage.module.css';
 const { Title, Text } = Typography;
 
 export function ConfigPage() {
-  const { allCategories, refreshCategoriesData } = useFilters();
+  const { allCategories, categoriesLoaded, refreshCategoriesData } = useFilters();
   const [saving, setSaving] = useState<string | null>(null);
 
   async function handleToggle(category: Category, excluded: boolean) {
@@ -22,7 +22,7 @@ export function ConfigPage() {
     }
   }
 
-  if (allCategories.length === 0) {
+  if (!categoriesLoaded) {
     return (
       <PageContainer maxWidth={600}>
         <Title level={2}>Config</Title>

@@ -113,7 +113,8 @@ function stripBidiMarks(s: string): string {
 
 export interface ParsedTransaction {
   date: string;           // YYYY-MM-DD
-  description: string;
+  description: string;    // bidi control chars stripped
+  rawDescription: string; // original, unstripped — for client-side bidi preview
   paymentMethod: string | null;
   category: string;
   details: string | null;
@@ -212,9 +213,11 @@ export function parseSheet(sheet: XLSX.WorkSheet, customMap?: Record<string, str
     const expenseAgorot = txn.expense != null ? parseAmount(txn.expense) : (signedAmount < 0 ? -signedAmount : 0);
     const incomeAgorot  = txn.income  != null ? parseAmount(txn.income)  : (signedAmount > 0 ? signedAmount  : 0);
 
+    const rawDesc = String(txn.description ?? '');
     result.push({
       date: txn.date,
-      description: stripBidiMarks(String(txn.description ?? '')),
+      description: stripBidiMarks(rawDesc),
+      rawDescription: rawDesc,
       paymentMethod: ((txn as Record<string, unknown>)['payment_method'] as string | null) ?? null,
       category: (txn.category as string | null) ?? '',
       details: (txn.details as string | null) ?? null,
@@ -327,6 +330,7 @@ export function parseRawRows(rows: string[][], headerRowIdx: number, customMap?:
     result.push({
       date: txn.date,
       description: stripBidiMarks(String(txn.description ?? '')),
+      rawDescription: String(txn.description ?? ''),
       paymentMethod: ((txn as Record<string, unknown>)['payment_method'] as string | null) ?? null,
       category: (txn.category as string | null) ?? '',
       details: (txn.details as string | null) ?? null,
@@ -403,7 +407,7 @@ export function getSheetMeta(buffer: Buffer, sheetName: string, customMap?: Reco
     const dateRange = { from: dates[0]!, to: dates[dates.length - 1]! };
     const sampleRows = txns.slice(0, 5).map(t => ({
       date: t.date,
-      description: t.description,
+      description: t.rawDescription,
       category: t.category,
       expenseAgorot: t.expenseAgorot,
       incomeAgorot: t.incomeAgorot,

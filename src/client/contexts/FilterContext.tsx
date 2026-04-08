@@ -8,6 +8,7 @@ interface FilterContextValue {
   defaultExcludedIds: string[];
   sidebarAccounts: Account[];
   allCategories: Category[];
+  categoriesLoaded: boolean;
   latestTransactionDate: string | null;
   setAccountIds: (ids: string[]) => void;
   setCategoryIds: (ids: string[]) => void;
@@ -60,6 +61,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
   const [defaultExcludedIds, setDefaultExcludedIds] = useState<string[]>([]);
   const [sidebarAccounts, setSidebarAccounts] = useState<Account[]>([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [latestTransactionDate, setLatestTransactionDate] = useState<string | null>(null);
   // Tracks the last params string WE wrote, so we can ignore our own URL updates
   const lastWrittenParamsRef = useRef<string>('');
@@ -69,6 +71,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
       .then(r => r.json() as Promise<Category[]>)
       .then(cats => {
         setAllCategories(cats);
+        setCategoriesLoaded(true);
         const ids = cats.filter(c => c.excludedByDefault).map(c => c.id);
         setDefaultExcludedIds(ids);
         // Sync the filter so config changes are immediately reflected in the sidebar and queries.
@@ -101,6 +104,7 @@ export function FilterProvider({ children }: { children: ReactNode }) {
       .then(r => r.json() as Promise<Category[]>)
       .then(cats => {
         setAllCategories(cats);
+        setCategoriesLoaded(true);
         const ids = cats.filter(c => c.excludedByDefault).map(c => c.id);
         setDefaultExcludedIds(ids);
         setFiltersState(prev => ({ ...prev, excludeCategories: ids }));
@@ -183,12 +187,13 @@ export function FilterProvider({ children }: { children: ReactNode }) {
     defaultExcludedIds,
     sidebarAccounts,
     allCategories,
+    categoriesLoaded,
     latestTransactionDate,
     refreshCategoriesData,
     refreshAll,
     resetFilters,
     ...stableSetters,
-  }), [filters, defaultExcludedIds, sidebarAccounts, allCategories, latestTransactionDate, refreshAll, refreshCategoriesData, resetFilters, stableSetters]);
+  }), [filters, defaultExcludedIds, sidebarAccounts, allCategories, categoriesLoaded, latestTransactionDate, refreshAll, refreshCategoriesData, resetFilters, stableSetters]);
 
   return <FilterContext.Provider value={value}>{children}</FilterContext.Provider>;
 }

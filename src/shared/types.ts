@@ -224,6 +224,7 @@ export interface ImportPreviewSheet {
 export interface ImportPreviewResponse {
   fileId: string;
   sheets: ImportPreviewSheet[];
+  suggestFixBidi: boolean;
 }
 
 export interface ImportedTransactionReview {

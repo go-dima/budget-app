@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid';
 import { transactions, accounts, categories } from '../../db/schema.js';
 import type { DB } from '../../db/index.js';
 import type { Transaction, TransactionFilters, TransactionsResponse } from '../../shared/types.js';
-import { fixBidiVisualOrder } from '../../shared/bidiUtils.js';
+import { fixBidiVisualOrderForce } from '../../shared/bidiUtils.js';
 
 export interface InsertTransaction {
   accountId: string;
@@ -151,7 +151,7 @@ export class TransactionService {
       .where(eq(transactions.id, id))
       .get();
     if (!row) return null;
-    const fixed = fixBidiVisualOrder(row.description);
+    const fixed = fixBidiVisualOrderForce(row.description);
     this.db.update(transactions).set({ description: fixed }).where(eq(transactions.id, id)).run();
     return this.db
       .select({

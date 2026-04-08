@@ -27,6 +27,7 @@ import { CategoryMappingService } from './CategoryMappingService.js';
 import { PaymentMappingService } from './PaymentMappingService.js';
 import { TransactionService } from './TransactionService.js';
 import { fixBidiVisualOrder } from '../../shared/bidiUtils.js';
+import { shouldSuggestBidiFix } from '../../shared/bidiUtils.js';
 
 export class ImportService {
   private accountSvc: AccountService;
@@ -51,6 +52,7 @@ export class ImportService {
 
     const colSvc = new ColumnMappingService(this.db);
     const sheets: ImportPreviewSheet[] = [];
+    const previewDescriptions: string[] = [];
     const html = isHtmlFile(buffer);
 
     // Build sheet name → raw rows mapping (for both file types)
@@ -83,6 +85,17 @@ export class ImportService {
       const rowsForSelection = headerRowIdx > 0 ? rawRows.slice(0, Math.min(15, rawRows.length)) : null;
 
       const meta = getSheetMeta(buffer, sheetName, undefined, headerRowIdx);
+      const parsed = parseRawRows(rawRows, headerRowIdx);
+      const descriptionCols = headerRow
+        .map((columnName, index) => ({ columnName: columnName.trim(), index }))
+        .filter(({ columnName }) => COLUMN_MAPPING[columnName] === 'description')
+        .map(({ index }) => index);
+      for (const row of rawRows.slice(headerRowIdx + 1)) {
+        for (const col of descriptionCols) {
+          const value = row[col];
+          if (typeof value === 'string' && value.trim()) previewDescriptions.push(value);
+        }
+      }
 
       // Build column pre-fills from DB or COLUMN_MAPPING defaults
       let storedColumnMapping: ColumnMappingEntry[] | null = null;
@@ -116,9 +129,6 @@ export class ImportService {
       let existingAccount: ImportPreviewSheet['existingAccount'] = null;
       const existingAcc = this.accountSvc.getByName(sheetName);
       if (existingAcc) {
-        const parsed = html
-          ? parseRawRows(rawRows, headerRowIdx)
-          : parseSheet(XLSX.read(buffer, { type: 'buffer' }).Sheets[sheetName]!);
         const candidates = parsed.map(t => ({
           accountId: existingAcc.id,
           categoryId: null as string | null,
@@ -146,7 +156,7 @@ export class ImportService {
     }
 
     void filename;
-    return { fileId, sheets };
+    return { fileId, sheets, suggestFixBidi: shouldSuggestBidiFix(previewDescriptions) };
   }
 
   executeImport(fileId: string, filename: string, sheetNameOverrides: Record<string, string> = {}, selectedSheets?: string[], columnMapping?: ColumnMappingMap, headerRowOverrides?: Record<string, number>, fixBidi?: boolean): ImportExecuteResponse {
@@ -210,7 +220,7 @@ export class ImportService {
         } else {
           parsed = parseSheet(sheet!, customMap);
         }
-        if (fixBidi) parsed = parsed.map(t => ({ ...t, description: fixBidiVisualOrder(t.description) }));
+        if (fixBidi) parsed = parsed.map(t => ({ ...t, description: fixBidiVisualOrder(t.rawDescription) }));
         if (parsed.length === 0) continue;
         const account = this.accountSvc.findOrCreate(accountName);
 
