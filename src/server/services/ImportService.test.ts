@@ -3,16 +3,19 @@ import * as XLSX from 'xlsx';
 import { createTestDb } from '../../db/index.js';
 import { AccountService } from './AccountService.js';
 import { ImportService } from './ImportService.js';
+import { TransactionService } from './TransactionService.js';
 
 describe('ImportService', () => {
   let db: ReturnType<typeof createTestDb>;
   let service: ImportService;
   let accountService: AccountService;
+  let txnService: TransactionService;
 
   beforeEach(() => {
     db = createTestDb();
     service = new ImportService(db);
     accountService = new AccountService(db);
+    txnService = new TransactionService(db);
   });
 
   it('getImportStatus returns empty when no data', () => {
@@ -57,5 +60,37 @@ describe('ImportService', () => {
     const preview = service.previewFile(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }), 'normal.xlsx');
 
     expect(preview.suggestFixBidi).toBe(false);
+  });
+
+  it('previewFile counts probable duplicates separately from confirmed', () => {
+    // Seed DB with one transaction
+    const account = accountService.create('Checking');
+    txnService.insert([{
+      accountId: account.id,
+      categoryId: null,
+      amount: -1505,
+      type: 'expense',
+      description: 'Original description',
+      paymentMethod: null,
+      details: null,
+      reference: '202-18681859',
+      balance: null,
+      date: '2026-04-05',
+    }]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['תאריך', 'תיאור', 'חובה', 'זכות', 'אסמכתא'],
+      ['05/04/2026', 'Different description (bidi variant)', '15.05', '', '202-18681859'], // probable
+      ['06/04/2026', 'New transaction', '20.00', '', '202-99999999'],                      // new
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Checking');
+
+    const preview = service.previewFile(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }), 'test.xlsx');
+    const ea = preview.sheets[0]!.existingAccount!;
+
+    expect(ea.duplicates).toBe(0);
+    expect(ea.probableDuplicates).toBe(1);
+    expect(ea.newRows).toBe(1);
   });
 });

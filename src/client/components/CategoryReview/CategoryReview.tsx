@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Button, Table, Tabs, Tag, Typography } from 'antd';
+import { Button, Table, Tabs, Tag, Tooltip, Typography } from 'antd';
 import type { DefaultOptionType } from 'antd/es/select';
 import type { ColumnsType } from 'antd/es/table';
 import type { Category, ImportedTransactionReview } from '../../../shared/types.js';
 import { EmptyState } from '../EmptyState/EmptyState.js';
 import { SearchableDropdown } from '../SearchableDropdown/SearchableDropdown.js';
 import { AmountDisplay } from '../AmountDisplay/AmountDisplay.js';
-import { dateCol as makeDateCol, descriptionColSimple as makeDescCol } from '../tableColumns.js';
+import { dateCol as makeDateCol } from '../tableColumns.js';
 import styles from './CategoryReview.module.css';
 
 const { Title, Text } = Typography;
@@ -51,7 +51,9 @@ interface CategoryReviewProps {
 export function CategoryReview({ transactions, categories, onSave, isLoading }: CategoryReviewProps) {
   const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string | null>>({});
   const [pmOverrides, setPmOverrides] = useState<Record<string, string>>({});
-  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [skipped, setSkipped] = useState<Set<string>>(
+    () => new Set(transactions.filter(t => t.probableDuplicate).map(t => t.id))
+  );
   const [pages, setPages] = useState<Record<string, number>>({});
 
   function getEffectiveCategoryId(row: ImportedTransactionReview): string | null {
@@ -111,7 +113,21 @@ export function CategoryReview({ transactions, categories, onSave, isLoading }: 
 
   const columns = useMemo<ColumnsType<ImportedTransactionReview>>(() => [
     makeDateCol<ImportedTransactionReview>(),
-    makeDescCol<ImportedTransactionReview>(),
+    {
+      title: 'Description',
+      dataIndex: 'description',
+      key: 'description',
+      render: (v: string, row: ImportedTransactionReview) => (
+        <div>
+          <span dir="rtl">{v}</span>
+          {row.probableDuplicate && (
+            <Tooltip title={row.existingDescription ? `Already in DB: ${row.existingDescription}` : 'Matches an existing transaction'}>
+              <Tag color="warning" style={{ marginTop: 2, display: 'block', width: 'fit-content' }}>Probable duplicate</Tag>
+            </Tooltip>
+          )}
+        </div>
+      ),
+    },
     {
       title: 'Amount',
       dataIndex: 'amount',

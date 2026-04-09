@@ -61,21 +61,24 @@ describe('Import flow', () => {
 
   it('execute imports all rows with no duplicates', () => {
     const preview = importSvc.previewFile(fileBuffer, 'ImportDataTest.xlsx');
-    const result = importSvc.executeImport(preview.fileId, 'ImportDataTest.xlsx');
+    const execute = importSvc.executeImport(preview.fileId, 'ImportDataTest.xlsx');
 
-    expect(result.success).toBe(true);
-    expect(result.totalNew).toBe(EXPECTED.totalTransactions);
-    expect(result.totalSkipped).toBe(EXPECTED.totalSkipped);
+    expect(execute.success).toBe(true);
+    expect(execute.totalNew).toBe(EXPECTED.totalTransactions);
+    expect(execute.totalSkipped).toBe(EXPECTED.totalSkipped);
 
-    expect(result.results).toHaveLength(1);
-    const sheetResult = result.results[0]!;
+    expect(execute.results).toHaveLength(1);
+    const sheetResult = execute.results[0]!;
     expect(sheetResult.accountName).toBe(EXPECTED.sheetName);
     expect(sheetResult.newTransactions).toBe(EXPECTED.totalTransactions);
     expect(sheetResult.duplicatesSkipped).toBe(0);
     expect(sheetResult.error).toBeNull();
+
+    // Commit so transactions are in the DB for subsequent tests
+    importSvc.commitImport({ fileId: preview.fileId, filename: 'ImportDataTest.xlsx', categoryOverrides: {}, pmOverrides: {}, skippedIds: [] });
   });
 
-  it('re-importing the same file skips all rows as duplicates', () => {
+  it('re-importing the same file skips all rows as confirmed duplicates', () => {
     const preview = importSvc.previewFile(fileBuffer, 'ImportDataTest.xlsx');
     const result = importSvc.executeImport(preview.fileId, 'ImportDataTest.xlsx');
 

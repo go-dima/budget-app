@@ -158,8 +158,10 @@ export class ImportService {
           balance: t.balanceAgorot || null,
           date: t.date,
         }));
-        const dupeFlags = this.txnSvc.findDuplicates(existingAcc.id, candidates);
-        existingAccount = { accountId: existingAcc.id, newRows: candidates.length - dupeFlags.filter(Boolean).length, duplicates: dupeFlags.filter(Boolean).length };
+        const dupeResults = this.txnSvc.findDuplicates(existingAcc.id, candidates);
+        const confirmed = dupeResults.filter(r => r.status === 'confirmed').length;
+        const probable = dupeResults.filter(r => r.status === 'probable').length;
+        existingAccount = { accountId: existingAcc.id, newRows: candidates.length - confirmed - probable, duplicates: confirmed, probableDuplicates: probable };
       }
 
       const sampleRows = meta.sampleRows.map(r => ({
@@ -268,12 +270,15 @@ export class ImportService {
         }
 
         // Deduplicate — no DB insert yet
-        const dupeFlags = this.txnSvc.findDuplicates(account.id, candidates);
-        const newRows = candidates.filter((_, i) => !dupeFlags[i]);
-        const skipped = candidates.length - newRows.length;
+        const dupeResults = this.txnSvc.findDuplicates(account.id, candidates);
+        const confirmedSkipped = dupeResults.filter(r => r.status === 'confirmed').length;
 
-        // Resolve mappings and build review + staged rows
-        for (const row of newRows) {
+        // Resolve mappings and build review + staged rows (confirmed dupes are excluded)
+        for (let i = 0; i < candidates.length; i++) {
+          const dupe = dupeResults[i]!;
+          if (dupe.status === 'confirmed') continue;
+
+          const row = candidates[i]!;
           const tempId = nanoid();
           const catMapping = mappingSvc.getMappingFor(accountName, row.description);
           let resolvedCategoryId = row.categoryId;
@@ -286,9 +291,9 @@ export class ImportService {
           stagedRows.push({
             tempId,
             sheetName,
+            ...row,
             accountId: account.id,
             accountName: account.name,
-            ...row,
             categoryId: resolvedCategoryId,
             paymentMethod: resolvedPm,
           });
@@ -307,12 +312,15 @@ export class ImportService {
             paymentMethod: resolvedPm,
             preferredPaymentMethod: pmMapping?.preferred ?? null,
             suggestedPaymentMethods: pmMapping?.suggested ?? [],
+            probableDuplicate: dupe.status === 'probable',
+            existingDescription: dupe.status === 'probable' ? dupe.existingDescription : null,
           });
         }
 
-        results.push({ sheetName, accountName: account.name, newTransactions: newRows.length, duplicatesSkipped: skipped, error: null });
-        totalNew += newRows.length;
-        totalSkipped += skipped;
+        const staged = candidates.length - confirmedSkipped;
+        results.push({ sheetName, accountName: account.name, newTransactions: staged, duplicatesSkipped: confirmedSkipped, error: null });
+        totalNew += staged;
+        totalSkipped += confirmedSkipped;
       } catch (e) {
         results.push({ sheetName, accountName: sheetName, newTransactions: 0, duplicatesSkipped: 0, error: String(e) });
       }

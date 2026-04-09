@@ -33,7 +33,7 @@ Display a summary table:
 
 - One row per account showing: account name, transaction count, latest transaction date.
 - A total row at the bottom with the sum of all transactions.
-- A warning banner: "Importing will add new transactions. Duplicates (same date, amount, description, reference) are skipped automatically."
+- A warning banner: "Importing will add new transactions. Confirmed duplicates (same date, amount, description, reference) are skipped automatically. Probable duplicates (same date, amount, reference) appear in the review step for your decision."
 - An "Override" option: a button labeled **"Clear all data and re-import"** that wipes the DB before importing. Requires confirmation dialog ("This will delete all 2,081 transactions. Are you sure?").
 
 **If the database is empty**:
@@ -73,7 +73,7 @@ Additional sheet details:
 - Number of rows detected
 - Date range (earliest → latest)
 - Sample rows (first 5 transactions): date, description, category, amount
-- If the selected account already exists in the DB: "⚡ Account exists — X new rows will be added, Y duplicates will be skipped"
+- If the selected account already exists in the DB: "⚡ Account exists — X new rows will be added, Y confirmed duplicates skipped, Z probable duplicates for review"
 
 A **"Confirm Import"** button at the bottom. Disabled until at least one sheet is selected.
 
@@ -172,13 +172,16 @@ Each sheet in the file = one account. The sheet name becomes the account name.
 
 ## Duplicate Detection
 
-A transaction is considered a duplicate if **all four** match an existing transaction in the same account:
-- `date`
-- `amount` (in agorot)
-- `description`
-- `reference`
+Detection runs in two tiers:
 
-Duplicates are skipped silently — counted in the summary but not flagged as errors.
+**Confirmed duplicates** — all four fields match an existing transaction in the same account:
+`date`, `amount` (agorot), `description`, `reference`. Skipped silently; counted in the summary.
+
+**Probable duplicates** — `date`, `amount`, and `reference` match, but `description` differs.
+Only applies when `reference` is non-null and non-empty (e.g. bidi-mangled descriptions that
+produce a different string for the same bank transaction). These rows are included in the
+Category Review step, pre-marked as "skip", with a yellow "Probable duplicate" warning tag
+showing the existing description in a tooltip. The user can un-skip them to import anyway.
 
 ---
 

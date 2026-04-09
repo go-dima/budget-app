@@ -5,6 +5,11 @@ import type { DB } from '../../db/index.js';
 import type { Transaction, TransactionFilters, TransactionsResponse } from '../../shared/types.js';
 import { fixBidiVisualOrderForce } from '../../shared/bidiUtils.js';
 
+export type DupeStatus =
+  | { status: 'none' }
+  | { status: 'confirmed' }
+  | { status: 'probable'; existingDescription: string }
+
 export interface InsertTransaction {
   accountId: string;
   categoryId: string | null;
@@ -29,8 +34,14 @@ export class TransactionService {
     return values.map(v => v.id);
   }
 
-  /** Returns which rows are duplicates (same accountId, date, amount, description, reference) */
-  findDuplicates(accountId: string, rows: InsertTransaction[]): boolean[] {
+  /**
+   * Classifies each incoming row against existing transactions in the account.
+   *
+   * - 'confirmed': all four fields match (date, amount, description, reference) → auto-skip
+   * - 'probable':  date, amount, and a non-empty reference match but description differs → surface to user
+   * - 'none':      no match
+   */
+  findDuplicates(accountId: string, rows: InsertTransaction[]): DupeStatus[] {
     if (rows.length === 0) return [];
     const existing = this.db.select({
       date: transactions.date,
@@ -39,13 +50,30 @@ export class TransactionService {
       reference: transactions.reference,
     }).from(transactions).where(eq(transactions.accountId, accountId)).all();
 
-    const existingSet = new Set(
+    const confirmedSet = new Set(
       existing.map(r => `${r.date}|${r.amount}|${r.description}|${r.reference ?? ''}`)
     );
 
-    return rows.map(r =>
-      existingSet.has(`${r.date}|${r.amount}|${r.description}|${r.reference ?? ''}`)
-    );
+    // probable map: 3-field key → existing description (only when reference is present)
+    const probableMap = new Map<string, string>();
+    for (const r of existing) {
+      if (r.reference) {
+        probableMap.set(`${r.date}|${r.amount}|${r.reference}`, r.description);
+      }
+    }
+
+    return rows.map(r => {
+      if (confirmedSet.has(`${r.date}|${r.amount}|${r.description}|${r.reference ?? ''}`)) {
+        return { status: 'confirmed' } as DupeStatus;
+      }
+      if (r.reference) {
+        const existingDescription = probableMap.get(`${r.date}|${r.amount}|${r.reference}`);
+        if (existingDescription !== undefined) {
+          return { status: 'probable', existingDescription } as DupeStatus;
+        }
+      }
+      return { status: 'none' } as DupeStatus;
+    });
   }
 
   list(filters: TransactionFilters = {}): TransactionsResponse {

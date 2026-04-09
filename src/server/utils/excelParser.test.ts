@@ -60,48 +60,52 @@ const XLS_ROWS: string[][] = [
 
 const EXPECTED = [
   {
-    date:           '2025-09-21',
-    description:    'שיק',
-    reference:      '5000152',
-    expenseAgorot:  800000,   // ₪8,000.00
-    incomeAgorot:   0,
-    balanceAgorot:  2901342,  // ₪29,013.42
-    paymentMethod:  null,
-    category:       '',
-    details:        null,
+    date:             '2025-09-21',
+    description:      'שיק',
+    rawDescription:   'שיק',
+    reference:        '5000152',
+    expenseAgorot:    800000,   // ₪8,000.00
+    incomeAgorot:     0,
+    balanceAgorot:    2901342,  // ₪29,013.42
+    paymentMethod:    null,
+    category:         '',
+    details:          null,
   },
   {
-    date:           '2025-09-30',
-    description:    'מס הכנסה',
-    reference:      '377317',
-    expenseAgorot:  756,      // ₪7.56
-    incomeAgorot:   0,
-    balanceAgorot:  2900586,  // ₪29,005.86
-    paymentMethod:  null,
-    category:       '',
-    details:        null,
+    date:             '2025-09-30',
+    description:      'מס הכנסה',
+    rawDescription:   'מס הכנסה',
+    reference:        '377317',
+    expenseAgorot:    756,      // ₪7.56
+    incomeAgorot:     0,
+    balanceAgorot:    2900586,  // ₪29,005.86
+    paymentMethod:    null,
+    category:         '',
+    details:          null,
   },
   {
-    date:           '2025-09-30',
-    description:    'רבית זכות',
-    reference:      '377316',
-    expenseAgorot:  0,
-    incomeAgorot:   5042,     // ₪50.42
-    balanceAgorot:  2905628,  // ₪29,056.28
-    paymentMethod:  null,
-    category:       '',
-    details:        null,
+    date:             '2025-09-30',
+    description:      'רבית זכות',
+    rawDescription:   'רבית זכות',
+    reference:        '377316',
+    expenseAgorot:    0,
+    incomeAgorot:     5042,     // ₪50.42
+    balanceAgorot:    2905628,  // ₪29,056.28
+    paymentMethod:    null,
+    category:         '',
+    details:          null,
   },
   {
-    date:           '2025-10-03',
-    description:    'ישראכרט בע"מ-י',
-    reference:      '20543',
-    expenseAgorot:  84945,    // ₪849.45
-    incomeAgorot:   0,
-    balanceAgorot:  2820683,  // ₪28,206.83
-    paymentMethod:  null,
-    category:       '',
-    details:        null,
+    date:             '2025-10-03',
+    description:      'ישראכרט בע"מ-י',
+    rawDescription:   'ישראכרט בע"מ-י',
+    reference:        '20543',
+    expenseAgorot:    84945,    // ₪849.45
+    incomeAgorot:     0,
+    balanceAgorot:    2820683,  // ₪28,206.83
+    paymentMethod:    null,
+    category:         '',
+    details:          null,
   },
 ];
 

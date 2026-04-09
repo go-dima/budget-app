@@ -61,13 +61,46 @@ describe('TransactionService', () => {
     expect(result.totalIncome).toBe(100000);
   });
 
-  it('findDuplicates identifies duplicates by date+amount+description+reference', () => {
+  it('findDuplicates returns confirmed for exact 4-field match', () => {
+    service.insert([txn()]);
+    const dupes = service.findDuplicates(accountId, [txn()]);
+    expect(dupes).toEqual([{ status: 'confirmed' }]);
+  });
+
+  it('findDuplicates returns probable when date+amount+reference match but description differs', () => {
+    service.insert([txn({ description: 'Original description' })]);
+    const dupes = service.findDuplicates(accountId, [
+      txn({ description: 'Different description (bidi variant)' }),
+    ]);
+    expect(dupes).toEqual([{ status: 'probable', existingDescription: 'Original description' }]);
+  });
+
+  it('findDuplicates returns none for genuinely new row', () => {
     service.insert([txn()]);
     const dupes = service.findDuplicates(accountId, [
-      txn(), // duplicate
-      txn({ date: '2025-01-16', reference: '124' }), // new
+      txn({ date: '2025-01-16', reference: '124' }),
     ]);
-    expect(dupes).toEqual([true, false]);
+    expect(dupes).toEqual([{ status: 'none' }]);
+  });
+
+  it('findDuplicates does not flag probable when reference is null', () => {
+    service.insert([txn({ reference: null })]);
+    const dupes = service.findDuplicates(accountId, [
+      txn({ reference: null, description: 'Different description' }),
+    ]);
+    expect(dupes).toEqual([{ status: 'none' }]);
+  });
+
+  it('findDuplicates handles mixed results correctly', () => {
+    service.insert([txn(), txn({ date: '2025-01-16', reference: '124', description: 'Shop' })]);
+    const dupes = service.findDuplicates(accountId, [
+      txn(),                                                                     // confirmed
+      txn({ date: '2025-01-16', reference: '124', description: 'Shop bidi' }), // probable
+      txn({ date: '2025-01-17', reference: '125' }),                            // none
+    ]);
+    expect(dupes[0]).toEqual({ status: 'confirmed' });
+    expect(dupes[1]).toEqual({ status: 'probable', existingDescription: 'Shop' });
+    expect(dupes[2]).toEqual({ status: 'none' });
   });
 
   it('bulkSetCategory sets a category on a transaction', () => {

@@ -210,6 +210,7 @@ export interface ImportPreviewSheet {
     accountId: string;
     newRows: number;
     duplicates: number;
+    probableDuplicates: number;
   } | null;
   error: string | null;
   // Non-null when the sheet has columns not in the built-in COLUMN_MAPPING that affect amounts
@@ -241,6 +242,8 @@ export interface ImportedTransactionReview {
   paymentMethod: string | null;
   preferredPaymentMethod: string | null;
   suggestedPaymentMethods: string[];
+  probableDuplicate: boolean;
+  existingDescription: string | null;
 }
 
 export interface ImportExecuteRequest {
