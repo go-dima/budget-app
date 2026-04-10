@@ -86,13 +86,16 @@ The main area to the right of the sidebar (or full-width on Settings pages).
 ## Routes
 
 ```
-/                       → AccountsPage
-/transactions           → TransactionsPage
-/reports                → ReportsPage
-/settings               → redirect to /settings/categories
-/settings/categories    → ConfigPage (hidden categories toggles)
-/settings/databases     → DatabasesPage (list, create, switch, rename, delete DBs)
-/settings/import        → ImportPage (active DB badge + upload flow)
+/                           → AccountsPage
+/transactions               → TransactionsPage
+/reports                    → ReportsPage
+/settings                   → redirect to /settings/categories
+/settings/categories        → ConfigPage (hidden categories toggles)
+/settings/mapping           → CategoryMappingPage (description→category mappings)
+/settings/payment-mapping   → PaymentMappingPage (description→payment method mappings)
+/settings/column-mapping    → ColumnMappingSettingsPage (source column→field mappings)
+/settings/databases         → DatabasesPage (list, create, switch, rename, delete DBs)
+/settings/import            → ImportPage (active DB badge + upload flow)
 ```
 
 ---
@@ -118,6 +121,9 @@ The main area to the right of the sidebar (or full-width on Settings pages).
             <Route path="/settings" element={<SettingsPage />}>
               <Route index element={<Navigate to="categories" />} />
               <Route path="categories" element={<ConfigPage />} />
+              <Route path="mapping" element={<CategoryMappingPage />} />
+              <Route path="payment-mapping" element={<PaymentMappingPage />} />
+              <Route path="column-mapping" element={<ColumnMappingSettingsPage />} />
               <Route path="databases" element={<DatabasesPage />} />
               <Route path="import" element={<ImportPage />} />
             </Route>

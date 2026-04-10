@@ -7,11 +7,13 @@ A personal budget/finance viewer for Israeli bank transaction data. Single-user 
 **Source repo**: `https://github.com/go-dima/budget-app`
 **App spec**: See `APP_SPEC.md` for overview, then `specs/` for per-page specs:
 - `specs/APP_LAYOUT.md` — Navigation bar, filter sidebar, responsive shell
+- `specs/APP_FLOW.md` — Visual Mermaid diagrams: page navigation and data lifecycle
 - `specs/IMPORT_PAGE.md` — Import & bootstrap workflow
 - `specs/ACCOUNTS_PAGE.md` — Dashboard / home page
 - `specs/TRANSACTIONS_PAGE.md` — Transaction list
 - `specs/REPORTS_PAGE.md` — Aggregated reports
-**Tech debt**: See `TECH_DEBT.md` for future improvements under consideration.
+- `specs/SETTINGS_PAGE.md` — Settings: hidden categories, mapping sub-pages, databases
+**Tech debt**: See `specs/KNOWN_GAPS.md` for known issues under consideration.
 
 ---
 
@@ -52,7 +54,7 @@ You are reviewing code for the Budget Viewer app. Your job is to validate that i
 - [ ] Pages match the defined routes and content.
 - [ ] Cross-app filters are respected on all applicable pages.
 - [ ] Currency is stored as agorot, displayed via `AmountDisplay`.
-- [ ] Duplicate detection on import uses: date + amount + description + reference.
+- [ ] Duplicate detection uses two tiers: confirmed (date + amount + description + reference exact match → auto-skip) and probable (date + amount + reference match with different description → surfaced to user for review).
 
 **Code quality**:
 - [ ] Services have corresponding `.test.ts` files with meaningful test cases.
@@ -289,11 +291,25 @@ Single `budget.db` file, multiple tables.
 | date           | text    | ISO 8601 (YYYY-MM-DD)              |
 | created_at     | integer | Unix timestamp                      |
 
+### `description_category_map`
+| Column                | Type    | Notes                          |
+|-----------------------|---------|--------------------------------|
+| account               | text    | Account name                   |
+| description           | text    | Transaction description        |
+| preferred_category_id | text FK | → categories.id (nullable)     |
+
+### `description_payment_method_map`
+| Column                   | Type | Notes                       |
+|--------------------------|------|-----------------------------|
+| account                  | text | Account name                |
+| description              | text | Transaction description     |
+| preferred_payment_method | text | Nullable                    |
+
 ### `settings`
-| Column | Type    | Notes                         |
-|--------|---------|-------------------------------|
-| key    | text PK | Setting name                  |
-| value  | text    | JSON-encoded value            |
+| Column | Type    | Notes                                                              |
+|--------|---------|--------------------------------------------------------------------|
+| key    | text PK | Setting name                                                       |
+| value  | text    | JSON-encoded value. Column mappings stored here per account/sheet. |
 
 ### `import_logs`
 | Column      | Type    | Notes                              |
@@ -342,7 +358,7 @@ db/schema.ts (Drizzle table definitions)
 
 ## Database Conventions
 
-- **Single file**: `./data/budget.db` (configurable via `DATABASE_PATH` env var).
+- **Single file**: `./budget.db` (configurable via `DATABASE_PATH` env var).
 - **WAL mode**: `PRAGMA journal_mode=WAL` — set on connection.
 - **Foreign keys**: `PRAGMA foreign_keys=ON` — set on every connection.
 - **Migrations**: Drizzle Kit only. Never modify schema by hand.
@@ -406,7 +422,7 @@ npm run start      # Express serves API + static frontend on single port
 | Variable        | Default             | Description         |
 |-----------------|---------------------|---------------------|
 | `PORT`          | `3000`              | Server port         |
-| `DATABASE_PATH` | `./data/budget.db`  | Path to SQLite file |
+| `DATABASE_PATH` | `./budget.db`       | Path to SQLite file |
 
 ---
 
@@ -426,37 +442,15 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data    # Mount local data folder — DB persists across rebuilds
+      - ./budget.db:/app/budget.db    # Mount DB file — persists across rebuilds
     environment:
-      - DATABASE_PATH=/app/data/budget.db
+      - DATABASE_PATH=/app/budget.db
     restart: unless-stopped
 ```
 
 The app starts and connects to the SQLite file at the mounted path. If `budget.db` doesn't exist yet, it is created automatically on first startup (with migrations applied). If it already exists, the app uses it as-is — no data loss on rebuild or restart.
 
 Access via `http://<pi-ip>:3000` from any device on the local network. For external access, use Tailscale or Cloudflare Tunnel — never expose the port directly.
-
----
-
-## Migration Checklist (from current repo)
-
-- [ ] Scaffold new project structure under `src/`
-- [ ] Create `src/shared/types.ts` with API contract types
-- [ ] Move `frontend/src/components/` → `src/client/components/`
-- [ ] Move `frontend/src/hooks/` → `src/client/hooks/`
-- [ ] Move `frontend/src/pages/` → `src/client/pages/`
-- [ ] Move `frontend/src/contexts/` → `src/client/contexts/`
-- [ ] Move `frontend/.storybook/` → `.storybook/`
-- [ ] Create `src/client/api/client.ts` with typed fetch wrappers
-- [ ] Port `backend/src/services/` → `src/server/services/` (adapt to Drizzle)
-- [ ] Port `backend/src/routes/` → `src/server/routes/` (keep Express, use shared types)
-- [ ] Replace `backend/src/db/SqliteManager.ts` with Drizzle schema + connection
-- [ ] Port `backend/src/utils/` Excel parser → `src/server/services/ImportService.ts`
-- [ ] Remove `backend-python/`
-- [ ] Update `docker-compose.yml` and `Dockerfile` for single-container monolith
-- [ ] Add Vitest tests for all services
-- [ ] Update Storybook config paths
-- [ ] Set up Vite proxy for `/api/*` in dev
 
 ---
 

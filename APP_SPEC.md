@@ -17,10 +17,10 @@ Single user (the owner). No authentication. Accessed from multiple personal devi
 | Page           | Route              | Spec File                    | Purpose                                      |
 |----------------|--------------------|------------------------------|----------------------------------------------|
 | App Layout     | (all)              | `specs/APP_LAYOUT.md`        | Nav bar, filter sidebar, responsive shell    |
-| Import         | `/import`          | `specs/IMPORT_PAGE.md`       | Upload Excel files, bootstrap or add data    |
 | Accounts       | `/`                | `specs/ACCOUNTS_PAGE.md`     | Dashboard — balances, trends, top categories |
 | Transactions   | `/transactions`    | `specs/TRANSACTIONS_PAGE.md` | Filterable transaction list                  |
 | Reports        | `/reports`         | `specs/REPORTS_PAGE.md`      | Aggregated reports by month/category/year    |
+| Settings       | `/settings`        | `specs/SETTINGS_PAGE.md`     | App configuration — categories, mappings, databases, import |
 
 ---
 
@@ -65,11 +65,13 @@ A **persistent filter sidebar** on the left side, visible on all pages except Im
 
 ```
 Excel file (bank export)
-    → Import page (preview & confirm)
+    → Import page (preview → column mapping → category review → confirm)
         → budget.db (transactions, accounts, categories)
             → Accounts / Transactions / Reports (read & display)
                 ↑ filtered by cross-app filter bar
 ```
+
+**App Flow**: See `specs/APP_FLOW.md` for visual Mermaid diagrams of page navigation and data lifecycle.
 
 No manual transaction entry. All data comes from Excel imports.
 
@@ -80,7 +82,7 @@ No manual transaction entry. All data comes from Excel imports.
 - Multi-user or authentication
 - Budgets / spending targets
 - Manual transaction entry or editing
-- Category management UI (rename, merge, icons, colors)
+- Category rename, merge, icons, or colors
 - Cloud sync or backup
 - Bank API connections
 - Multi-currency
