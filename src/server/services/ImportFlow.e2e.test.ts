@@ -16,7 +16,7 @@ import { CategoryService } from './CategoryService.js';
 import type { DB } from '../../db/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const FLOW_TEST_XLSX = join(__dirname, '../../../data/ImportDataTest.xlsx');
+const FLOW_TEST_XLSX = join(__dirname, '__fixtures__/ImportDataTest.xlsx');
 
 // ── Expected values (derived from data/Flow Test.xlsx) ───────────────────────
 const EXPECTED = {
