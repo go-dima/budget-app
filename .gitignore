@@ -25,7 +25,7 @@ dist/
 *.swo
 
 # SQLite databases
-data/*.db
+data/*
 backend-python/data/*.db
 
 # Temp data

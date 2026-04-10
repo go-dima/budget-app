@@ -1,0 +1,56 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+}
+
+.sectionLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.dateButtons {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.categoriesSection {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.categoryPresetTags {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.categoryScrollList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.presetTag {
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkboxScroll {
+  max-height: 180px;
+  overflow-y: auto;
+  padding-left: 4px;
+}
+
+.checkboxItem {
+  margin-bottom: 4px;
+}
+
+.excludeList {
+  padding-left: 4px;
+}

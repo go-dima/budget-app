@@ -1,0 +1,19 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.description {
+  min-width: 240px;
+}
+
+.value {
+  min-width: 180px;
+}
+
+.search {
+  max-width: 280px;
+}

@@ -1,0 +1,30 @@
+.dbList {
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.dbRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+
+.dbRowClickable {
+  cursor: pointer;
+}
+
+.dbRowActive {
+  background: #e6f4ff;
+}
+
+.addRow {
+  padding: 6px 12px;
+}
+
+.nameInput {
+  width: 180px;
+}

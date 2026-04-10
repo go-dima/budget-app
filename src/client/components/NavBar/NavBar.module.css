@@ -1,0 +1,24 @@
+.header {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background: #001529;
+}
+
+.logo {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  margin-right: 32px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.settingsBtn {
+  margin-left: 8px;
+}
+
+.settingsBtnLight {
+  margin-left: 8px;
+  color: #fff;
+}

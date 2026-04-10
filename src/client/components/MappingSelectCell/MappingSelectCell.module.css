@@ -1,0 +1,34 @@
+.dropdownCell {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  min-width: 120px;
+  background: #fff;
+  transition: border-color 0.2s;
+  user-select: none;
+}
+
+.dropdownCell:hover {
+  border-color: #4096ff;
+}
+
+.label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caret {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+  flex-shrink: 0;
+}
+
+.selectCell {
+  min-width: 160px;
+}

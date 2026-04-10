@@ -1,203 +1,256 @@
 # Budget Viewer
 
-A budget viewer application for viewing and analyzing bank transaction data from Excel files or existing SQLite databases.
+A personal finance tracker for importing Israeli bank transaction data from Excel files and analyzing spending patterns. Single-user, runs locally or on a Raspberry Pi.
 
-## Features
+## Stack
 
-- Import bank transactions from Excel files (Hebrew format)
-- Import existing SQLite database files directly
-- View overall and per-account financial summaries
-- Generate reports grouped by month, category, or year
-- Filter transactions by account, category, and date range
-- Manage default excluded categories
-- All data stays on your local machine
-
-## Architecture
-
-The application uses a client-server architecture:
-
-- **Backend**: Node.js/Express with better-sqlite3 for native SQLite operations
-- **Frontend**: React SPA that communicates with the backend via REST API
-- **Storage**: SQLite database files stored in the `data/` folder
-
-## Tech Stack
-
-### Backend
-- **Runtime**: Node.js 20+
-- **Framework**: Express.js
-- **Database**: better-sqlite3 (native SQLite bindings)
-- **Excel Parsing**: SheetJS (xlsx)
-- **Language**: TypeScript
-
-### Frontend
-- **Framework**: React 19 with TypeScript
-- **Build Tool**: Vite
-- **UI Library**: Ant Design 6
+- **Frontend**: React 19 + TypeScript + Ant Design 6 (Vite)
+- **Backend**: Express + TypeScript
+- **Database**: SQLite via Drizzle ORM (single `data/budget.db`)
 - **Testing**: Vitest
-- **Component Docs**: Storybook
+- **Components**: Storybook 10
 
-## Project Structure
+---
 
-```
-budget-app/
-├── backend/               # TypeScript/Express backend
-│   ├── src/
-│   │   ├── db/            # Database layer
-│   │   │   ├── SqliteManager.ts
-│   │   │   └── repositories/
-│   │   ├── services/      # Business logic
-│   │   │   ├── AccountService.ts
-│   │   │   ├── ReportService.ts
-│   │   │   ├── AdminService.ts
-│   │   │   └── ImportService.ts
-│   │   ├── routes/        # API routes
-│   │   ├── utils/         # Utilities (Excel parser)
-│   │   └── types/         # TypeScript types
-│   └── Dockerfile
-├── frontend/              # React frontend
-│   ├── src/
-│   │   ├── api/           # API client
-│   │   ├── components/    # UI components
-│   │   ├── contexts/      # React contexts
-│   │   ├── hooks/         # Custom hooks
-│   │   ├── pages/         # Page components
-│   │   └── types/         # TypeScript types
-│   └── Dockerfile
-├── backend-python/        # Legacy Python backend (reference)
-├── data/                  # SQLite database files
-└── docker-compose.yml
-```
-
-## Quick Start
-
-### Using Docker (Recommended)
+## Quick Start (Docker Compose)
 
 ```bash
-# Build and start the application
-docker-compose up --build
-
-# Access the app at http://localhost:3000
-# API available at http://localhost:8000
+git clone https://github.com/go-dima/budget-app.git
+cd budget-app
+docker compose up -d --build
 ```
 
-### Manual Development Setup
+Open **http://localhost:3000**. The database is stored in `./data/budget.db` on the host and persists across rebuilds and restarts.
 
-**Backend:**
+---
+
+## Docker
+
+The Dockerfile uses a three-stage build:
+
+| Stage  | What it does |
+|--------|--------------|
+| `base` | Installs all npm dependencies (includes native build tools for `better-sqlite3`) |
+| `test` | Copies source and runs `npm test` — a failing test aborts the build |
+| `app`  | Runs `npm run build` and sets the production entrypoint |
+
+The `app` stage inherits from `test`, so the production image is only built if all tests pass.
+
+### Build the image
+
 ```bash
-cd backend
-npm install
-npm run dev     # Development with hot reload
-npm run build   # Build for production
-npm start       # Run production build
+docker build -t budget-app .
 ```
 
-**Frontend:**
+### Run tests only (without producing a full image)
+
 ```bash
-cd frontend
-npm install
-npm run dev     # Development server at http://localhost:5173
-npm run build   # Build for production
-npm run test    # Run tests
-npm run storybook  # Component documentation
+docker build --target test -t budget-app:test .
 ```
 
-## Usage
+### Run a one-off container (no Compose)
 
-1. **Start the Application**: Run `docker-compose up` or start both backend and frontend manually
-2. **Import Data**: Go to the Admin page to import data:
-   - **Excel files**: Upload `.xlsx` or `.xls` files - each sheet becomes a separate account
-   - **Database files**: Upload existing `.db` files directly
-3. **View Reports**: Use the Overview and Report pages to analyze your data
-4. **Filter Data**: Use the sidebar filters to narrow down transactions
+```bash
+mkdir -p data
+docker run -d \
+  --name budget-app \
+  -p 3000:3001 \
+  -v "$(pwd)/data:/app/data" \
+  -e DATA_DIR=/app/data \
+  --restart unless-stopped \
+  budget-app
+```
 
-## API Endpoints
+### Docker Compose (recommended for always-on / Raspberry Pi)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/accounts` | List all accounts |
-| GET | `/api/accounts/:id` | Get account details |
-| GET | `/api/transactions` | List transactions (with filters) |
-| GET | `/api/reports/overview` | Get financial overview |
-| GET | `/api/reports/aggregated` | Get aggregated report |
-| GET | `/api/admin/databases` | List loaded databases |
-| DELETE | `/api/admin/databases/:id` | Delete a database |
-| GET | `/api/admin/categories` | Get all categories |
-| GET | `/api/admin/excluded-categories` | Get excluded categories |
-| PUT | `/api/admin/excluded-categories` | Set excluded categories |
-| POST | `/api/import/preview` | Preview Excel file |
-| POST | `/api/import/execute` | Execute Excel import |
-| POST | `/api/import/database` | Import SQLite database |
+`docker-compose.yml` is included in the repo:
 
-## Data Storage
+```yaml
+services:
+  budget-app:
+    build: .
+    ports:
+      - "3000:3001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATA_DIR=/app/data
+    restart: unless-stopped
+```
 
-### Database Files
+```bash
+# Start (rebuild if anything changed)
+docker compose up -d --build
 
-The application stores data in SQLite database files in the `data/` folder:
+# View logs
+docker compose logs -f
 
-- `accounts.db` - Account metadata and settings
-- `settings.db` - Application settings (excluded categories)
-- `{account_name}.db` - Transaction data per account
+# Stop
+docker compose down
 
-### Docker Volume
+# Stop and wipe the database (irreversible)
+docker compose down -v
+```
 
-When running with Docker, the `./data` folder is mounted into the container, ensuring data persists between restarts.
+---
 
-## Excel File Format
+## Raspberry Pi Setup
 
-The application expects Excel files with Hebrew column headers:
+```bash
+# On the Pi (arm64 or armv7)
+git clone https://github.com/go-dima/budget-app.git
+cd budget-app
+docker compose up -d --build
+```
 
-| Column | Hebrew | Description |
-|--------|--------|-------------|
-| Date | תאריך | Transaction date |
-| Description | תיאור | Transaction description |
-| Payment Method | אמצעי תשלום | Payment method |
-| Category | קטגוריה | Transaction category |
-| Details | פירוט | Additional details |
-| Reference | אסמכתא | Reference number |
-| Expense | חובה | Expense amount |
-| Income | זכות | Income amount |
-| Balance | יתרה | Running balance |
+Access from any device on the same network: `http://<pi-ip>:3000`
 
-Each sheet in the Excel file represents a different account.
+For remote access, use [Tailscale](https://tailscale.com) or a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) — never expose the port directly to the internet.
+
+---
 
 ## Environment Variables
 
-### Backend
-- `PORT` - Server port (default: 8000)
-- `BUDGET_DB_PATH` - Path to data folder (default: `../data`)
-- `BUDGET_CORS_ORIGINS` - Allowed CORS origins (comma-separated or JSON array)
+| Variable   | Default  | Description                                                     |
+|------------|----------|-----------------------------------------------------------------|
+| `PORT`     | `3001`   | Port the Express server listens on                              |
+| `DATA_DIR` | `./data` | Directory where all `.db` files and `.active-db` pointer live  |
 
-### Frontend
-- `VITE_API_URL` - Backend API URL (default: `http://localhost:8000`)
+---
 
-## Development
+## Local Development
 
-### Code Quality
+### Prerequisites
 
-The project uses pre-commit hooks:
+- Node.js 20+
+- npm 10+
 
 ```bash
-# Install pre-commit hooks
-pre-commit install
+npm install
 
-# Run hooks manually
-pre-commit run --all-files
+# Start frontend (port 5173) + backend (port 3001) concurrently
+npm run dev
 ```
 
-### Testing
+Open [http://localhost:5173](http://localhost:5173). API calls are proxied to `localhost:3001`.
+
+### Tests
 
 ```bash
-cd frontend
-npm run test
+npm test             # Run all Vitest tests once
+npm run test:watch   # Watch mode
 ```
 
 ### Storybook
 
 ```bash
-cd frontend
-npm run storybook
+npm run storybook    # Opens at http://localhost:6006
 ```
 
-## License
+### Production build (without Docker)
 
-Private project.
+```bash
+npm run build   # Vite → dist/public, tsc → dist/server
+npm start       # Serves API + static frontend on port 3001
+```
+
+---
+
+## Database Migrations
+
+Migrations live in `src/db/migrations/` and run automatically on server startup.
+
+To generate a new migration after editing `src/db/schema.ts`:
+
+```bash
+npm run db:generate   # Creates a new SQL file in src/db/migrations/
+npm run db:migrate    # Applies pending migrations (runs automatically on startup too)
+```
+
+---
+
+## Project Structure
+
+```
+src/
+├── shared/           # API types — imported by both client and server
+│   ├── types.ts      # All request/response types, enums, constants
+│   └── utils.ts      # Shared utilities (e.g. date comparators)
+├── client/           # React frontend (Vite root)
+│   ├── httpClient/   # Typed fetch wrappers (client.ts)
+│   ├── components/   # Reusable UI components (each has a .stories.tsx)
+│   ├── contexts/     # FilterContext — global filter state synced to URL
+│   ├── hooks/        # Data hooks (useAccounts, useTransactions, useImportFlow, …)
+│   └── pages/        # Full page compositions
+├── server/           # Express backend
+│   ├── routes/       # Thin route handlers (validate → delegate → respond)
+│   ├── services/     # Business logic + DB access (each has a .test.ts)
+│   └── utils/        # Excel parser
+└── db/
+    ├── schema.ts     # Drizzle table definitions (source of truth)
+    ├── index.ts      # DB connection (WAL mode, FK on, auto-migrate)
+    └── migrations/   # Generated SQL migrations
+```
+
+See `AGENTS.md` for the full architecture spec and coding conventions.
+
+---
+
+## Excel Import Format
+
+Each sheet in the uploaded file becomes one account. Standard Hebrew column headers are recognized automatically:
+
+| Hebrew       | Field          |
+|--------------|----------------|
+| תאריך        | Date           |
+| תיאור        | Description    |
+| אמצעי תשלום | Payment method |
+| קטגוריה     | Category       |
+| פירוט        | Details        |
+| אסמכתא      | Reference      |
+| חובה         | Expense amount |
+| זכות         | Income amount  |
+| יתרה         | Running balance|
+
+Non-standard column names are handled via the **Column Mapping** step — mappings are saved per account and pre-filled on future imports.
+
+Duplicate detection: transactions with the same `date + amount + description + reference` in the same account are skipped on re-import.
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/accounts/summary` | Per-account summaries with optional filters |
+| GET | `/api/transactions` | Paginated, filtered transaction list |
+| POST | `/api/transactions/bulk-categorize` | Set category on multiple transactions |
+| POST | `/api/transactions/bulk-payment-method` | Set payment method on multiple transactions |
+| POST | `/api/transactions/bulk-delete` | Delete multiple transactions |
+| GET | `/api/categories` | All categories |
+| PATCH | `/api/categories/:id/exclude` | Toggle default exclusion for a category |
+| GET | `/api/reports/monthly-trend` | Income vs expenses per month |
+| GET | `/api/reports/top-categories` | Top expense categories |
+| GET | `/api/reports/by-month` | Monthly report table |
+| GET | `/api/reports/by-year` | Yearly report table |
+| GET | `/api/reports/by-category` | Category breakdown table |
+| GET | `/api/reports/month-detail` | Per-category breakdown for one month |
+| GET | `/api/reports/year-detail` | Monthly breakdown for one year |
+| GET | `/api/import/status` | Current DB state (account counts, latest dates) |
+| POST | `/api/import/preview` | Parse Excel file, return preview (multipart `file`) |
+| POST | `/api/import/execute` | Execute import |
+| DELETE | `/api/import/reset` | Clear all data |
+| GET | `/api/category-mapping` | All description→category mappings |
+| POST | `/api/category-mapping/recalculate` | Apply mappings to all uncategorized transactions |
+| GET | `/api/payment-mapping` | All description→payment method mappings |
+| POST | `/api/payment-mapping/recalculate` | Apply mappings to transactions with no payment method |
+| GET | `/api/column-mapping/:account` | Stored column mapping for an account |
+| POST | `/api/column-mapping/:account` | Save column mapping for an account |
+| GET | `/api/databases` | List all databases |
+| POST | `/api/databases` | Create a new database |
+| POST | `/api/databases/switch` | Switch to a different database |
+| PATCH | `/api/databases/:filename` | Rename a database |
+| DELETE | `/api/databases/:filename` | Delete a database |
+
+Transaction list filters (`GET /api/transactions` and most report endpoints):
+`accountIds`, `categoryIds`, `excludeCategories`, `startDate`, `endDate`, `type`, `search`, `paymentMethods`, `amountMin`, `amountMax`, `sortBy`, `sortOrder`, `page`, `pageSize`

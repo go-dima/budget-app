@@ -1,0 +1,18 @@
+.categoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.descriptionText {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.hideActiveBtn {
+  background: #8c8c8c;
+  color: #fff;
+  border-color: #8c8c8c;
+}

@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1773751202507,
+      "tag": "0000_shiny_zzzax",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773774925290,
+      "tag": "0001_regular_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774099408156,
+      "tag": "0002_previous_cerebro",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1774200000000,
+      "tag": "0003_preferred_category",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1774621532843,
+      "tag": "0004_hard_scalphunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1774641246362,
+      "tag": "0005_silky_toxin",
+      "breakpoints": true
+    }
+  ]
+}
