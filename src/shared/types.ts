@@ -248,7 +248,12 @@ export interface ImportedTransactionReview {
 
 export interface ImportExecuteRequest {
   fileId: string;
+  filename?: string;
+  sheetNameOverrides?: Record<string, string>;
+  selectedSheets?: string[];
   columnMapping?: ColumnMappingMap;
+  headerRowOverrides?: Record<string, number>;
+  fixBidi?: boolean;
 }
 
 export interface ImportSheetResult {

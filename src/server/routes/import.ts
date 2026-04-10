@@ -1,11 +1,26 @@
 import { Router } from 'express';
 import multer from 'multer';
+import type { Request, Response, NextFunction } from 'express';
 import { dbManager } from '../../db/manager.js';
 import { AccountService } from '../services/AccountService.js';
 import { ImportService } from '../services/ImportService.js';
+import type { ImportExecuteRequest } from '../../shared/types.js';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+});
+
+function handleUpload(req: Request, res: Response, next: NextFunction) {
+  upload.single('file')(req, res, (err) => {
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'File too large. Maximum size is 50 MB.' });
+    }
+    if (err) return res.status(400).json({ error: String(err) });
+    next();
+  });
+}
 
 router.get('/status', (req, res) => {
   try {
@@ -21,7 +36,7 @@ router.get('/status', (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
-router.post('/preview', upload.single('file'), (req, res) => {
+router.post('/preview', handleUpload, (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const service = new ImportService(dbManager.getDb());
@@ -31,7 +46,7 @@ router.post('/preview', upload.single('file'), (req, res) => {
 
 router.post('/execute', (req, res) => {
   try {
-    const { fileId, filename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides, fixBidi } = req.body as { fileId: string; filename?: string; sheetNameOverrides?: Record<string, string>; selectedSheets?: string[]; columnMapping?: import('../../shared/types.js').ColumnMappingMap; headerRowOverrides?: Record<string, number>; fixBidi?: boolean };
+    const { fileId, filename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides, fixBidi } = req.body as ImportExecuteRequest;
     if (!fileId) return res.status(400).json({ error: 'fileId required' });
     const service = new ImportService(dbManager.getDb());
     res.json(service.executeImport(fileId, filename || 'import.xlsx', sheetNameOverrides ?? {}, selectedSheets, columnMapping, headerRowOverrides, fixBidi));

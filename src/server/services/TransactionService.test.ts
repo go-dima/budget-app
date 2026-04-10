@@ -51,6 +51,17 @@ describe('TransactionService', () => {
     expect(result.transactions[0].date).toBe('2025-02-10');
   });
 
+  it('list with excludeCategories keeps uncategorized transactions visible', () => {
+    const categoryId = categoryService.findOrCreate('Food', 'expense').id;
+    service.insert([
+      txn({ categoryId: null }),                     // uncategorized — must remain visible
+      txn({ date: '2025-01-16', reference: '124', categoryId }), // categorized — must be excluded
+    ]);
+    const result = service.list({ excludeCategories: [categoryId] });
+    expect(result.total).toBe(1);
+    expect(result.transactions[0].categoryId).toBeNull();
+  });
+
   it('list calculates totalIncome and totalExpenses', () => {
     service.insert([
       txn({ amount: -50000, type: 'expense' }),

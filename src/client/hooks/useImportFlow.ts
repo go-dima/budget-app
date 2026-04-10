@@ -77,7 +77,7 @@ export function useImportFlow() {
     setStep('importing');
     setIsLoading(true);
     try {
-      const data = await importApi.execute(preview.fileId, currentFilename, mergedOverrides, selectedSheets, resolvedMapping, headerRowOverrides, fixBidi);
+      const data = await importApi.execute({ fileId: preview.fileId, filename: currentFilename, sheetNameOverrides: mergedOverrides, selectedSheets, columnMapping: resolvedMapping, headerRowOverrides, fixBidi });
       setResult(data);
       setReviewTransactions(data.transactionsForReview);
       const hasSuccess = data.results.some(r => r.error === null);

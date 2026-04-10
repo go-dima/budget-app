@@ -3,6 +3,7 @@ import type {
   MonthlyTrendItem, TopCategoryItem,
   MonthlyReportRow, YearlyReportRow, CategoryReportRow, MonthDetailRow,
   ImportStatusResponse, ImportPreviewResponse, ImportExecuteResponse, ImportCommitRequest,
+  ImportExecuteRequest,
   TransactionFilters, DbEntry, CategoryMapping, RecalculateResult, PaymentMapping,
   ColumnMappingEntry, ColumnMappingMap,
 } from '../../shared/types.js';
@@ -181,11 +182,11 @@ export const importApi = {
     form.append('file', file);
     return request<ImportPreviewResponse>('/api/import/preview', { method: 'POST', body: form });
   },
-  execute: (fileId: string, filename: string, sheetNameOverrides?: Record<string, string>, selectedSheets?: string[], columnMapping?: ColumnMappingMap, headerRowOverrides?: Record<string, number>, fixBidi?: boolean) =>
+  execute: (body: ImportExecuteRequest) =>
     request<ImportExecuteResponse>('/api/import/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileId, filename, sheetNameOverrides, selectedSheets, columnMapping, headerRowOverrides, fixBidi }),
+      body: JSON.stringify(body),
     }),
   commit: (body: ImportCommitRequest) =>
     request<ImportExecuteResponse>('/api/import/commit', {

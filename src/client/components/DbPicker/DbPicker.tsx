@@ -1,23 +1,38 @@
 import { Button, Card, Input, Popconfirm, Space, Tag, Typography, Spin } from 'antd';
 import { CheckOutlined, DatabaseOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { useDbPicker } from '../../hooks/useDbPicker.js';
+import type { DbEntry } from '../../../shared/types.js';
 import styles from './DbPicker.module.css';
 
 const { Text } = Typography;
 
-interface DbPickerProps {
-  onSwitched: () => void;
+export interface DbPickerProps {
+  dbs: DbEntry[];
+  loading: boolean;
+  newName: string;
+  setNewName: (v: string) => void;
+  creating: boolean;
+  switching: string | null;
+  deleting: string | null;
+  editingFilename: string | null;
+  editValue: string;
+  setEditValue: (v: string) => void;
+  activeDb: DbEntry | undefined;
+  handleSwitch: (filename: string) => void;
+  handleDelete: (filename: string) => void;
+  startEdit: (db: DbEntry) => void;
+  commitEdit: (filename: string) => void;
+  cancelEdit: () => void;
+  handleCreate: () => void;
   viewingFilename?: string;
   onView?: (filename: string) => void;
 }
 
-export function DbPicker({ onSwitched, viewingFilename, onView }: DbPickerProps) {
-  const {
-    dbs, loading, newName, setNewName, creating, switching, deleting,
-    editingFilename, editValue, setEditValue, activeDb,
-    handleSwitch, handleDelete, startEdit, commitEdit, cancelEdit, handleCreate,
-  } = useDbPicker({ onSwitched });
-
+export function DbPicker({
+  dbs, loading, newName, setNewName, creating, switching, deleting,
+  editingFilename, editValue, setEditValue, activeDb,
+  handleSwitch, handleDelete, startEdit, commitEdit, cancelEdit, handleCreate,
+  viewingFilename, onView,
+}: DbPickerProps) {
   return (
     <Card
       title={<Space><DatabaseOutlined /><span>Database</span></Space>}

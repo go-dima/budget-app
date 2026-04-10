@@ -95,14 +95,23 @@ function toIsoUtc(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Returns agorot (integer). Positive = income, negative = expense when context is known. */
+/** Returns agorot (integer). Uses string-based arithmetic to avoid float drift. */
 export function parseAmount(value: unknown): number {
   if (value == null) return 0;
-  if (typeof value === 'number') return Math.round(value * 100);
-  const cleaned = String(value).replace(/"/g, '').replace(/,/g, '').replace(/\s/g, '').trim();
-  if (!cleaned || cleaned === '-') return 0;
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : Math.round(num * 100);
+  const str = (typeof value === 'number' ? value.toString() : String(value))
+    .replace(/"/g, '').replace(/,/g, '').replace(/\s/g, '').trim();
+  if (!str || str === '-') return 0;
+  const neg = str.startsWith('-');
+  const abs = neg ? str.slice(1) : str;
+  const dotIdx = abs.indexOf('.');
+  const intPart = dotIdx === -1 ? abs : abs.slice(0, dotIdx);
+  const fracRaw = dotIdx === -1 ? '' : abs.slice(dotIdx + 1);
+  const frac2 = fracRaw.slice(0, 2).padEnd(2, '0');
+  const intVal = parseInt(intPart || '0', 10);
+  const fracVal = parseInt(frac2, 10);
+  if (isNaN(intVal) || isNaN(fracVal)) return 0;
+  const result = intVal * 100 + fracVal;
+  return neg ? -result : result;
 }
 
 /** Strips Unicode bidirectional control characters from a string (common in RTL bank exports). */

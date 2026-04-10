@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, like, inArray, notInArray, desc, asc, sql, count } from 'drizzle-orm';
+import { and, eq, gte, lte, like, inArray, notInArray, isNull, or, desc, asc, sql, count } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { transactions, accounts, categories } from '../../db/schema.js';
 import type { DB } from '../../db/index.js';
@@ -85,7 +85,7 @@ export class TransactionService {
     const conditions = [];
     if (accountIds?.length) conditions.push(inArray(transactions.accountId, accountIds));
     if (categoryIds?.length) conditions.push(inArray(transactions.categoryId, categoryIds));
-    if (excludeCategories?.length) conditions.push(notInArray(transactions.categoryId, excludeCategories));
+    if (excludeCategories?.length) conditions.push(or(isNull(transactions.categoryId), notInArray(transactions.categoryId, excludeCategories))!);
     if (startDate) conditions.push(gte(transactions.date, startDate));
     if (endDate) conditions.push(lte(transactions.date, endDate));
     if (type && type !== 'all') conditions.push(eq(transactions.type, type));

@@ -5,6 +5,7 @@ import { DbPicker } from '../components/DbPicker/DbPicker.js';
 import { DbStatusTable } from '../components/DbStatusTable/DbStatusTable.js';
 import { PageContainer } from '../components/PageContainer/PageContainer.js';
 import { useFilters } from '../contexts/FilterContext.js';
+import { useDbPicker } from '../hooks/useDbPicker.js';
 import type { ImportStatusResponse } from '../../shared/types.js';
 
 const { Title } = Typography;
@@ -19,6 +20,20 @@ export function DatabasesPage() {
   const loadStatus = useCallback((filename?: string) => {
     importApi.getStatus(filename).then(setStatus).catch(console.error);
   }, []);
+
+  const handleSwitched = useCallback(() => {
+    refreshAll();
+    databasesApi.list().then(dbs => {
+      const active = dbs.find(d => d.isActive);
+      if (active) {
+        setViewingFilename(active.filename);
+        setIsActiveViewing(true);
+        loadStatus(active.filename);
+      }
+    }).catch(console.error);
+  }, [refreshAll, loadStatus]);
+
+  const dbPicker = useDbPicker({ onSwitched: handleSwitched });
 
   // On mount, find the active DB and default to viewing it
   useEffect(() => {
@@ -36,26 +51,11 @@ export function DatabasesPage() {
 
   function handleView(filename: string) {
     setViewingFilename(filename);
-    // We'll learn isActive from the DB list (already loaded in DbPicker)
-    // Re-fetch to determine if it's active
     databasesApi.list().then(dbs => {
       const db = dbs.find(d => d.filename === filename);
       setIsActiveViewing(db?.isActive ?? false);
     }).catch(console.error);
     loadStatus(filename);
-  }
-
-  function handleSwitched() {
-    refreshAll();
-    // After switching, the new active DB is now the viewed one
-    databasesApi.list().then(dbs => {
-      const active = dbs.find(d => d.isActive);
-      if (active) {
-        setViewingFilename(active.filename);
-        setIsActiveViewing(true);
-        loadStatus(active.filename);
-      }
-    }).catch(console.error);
   }
 
   async function handleReset() {
@@ -76,7 +76,7 @@ export function DatabasesPage() {
     <PageContainer maxWidth={700}>
       <Title level={3}>Databases</Title>
       <DbPicker
-        onSwitched={handleSwitched}
+        {...dbPicker}
         viewingFilename={viewingFilename}
         onView={handleView}
       />

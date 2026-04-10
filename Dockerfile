@@ -31,6 +31,21 @@ RUN if [ -n "$BUILD_MEMORY_MB" ]; then export NODE_OPTIONS="--max-old-space-size
     && npx vite build
 RUN npx tsc -p tsconfig.server.json && cp -r src/db/migrations dist/db/migrations
 
+# ── Stage 4: runtime ──────────────────────────────────────────────────────────
+# Lean production image — no devDependencies, no build toolchain.
+# better-sqlite3 requires native bindings, so we still need build tools at
+# install time but they are confined to this stage.
+FROM node:20-alpine AS runtime
+
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=app /app/dist ./dist
+
 RUN mkdir -p /app/data
 
 EXPOSE 3001
