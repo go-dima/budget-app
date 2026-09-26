@@ -23,12 +23,21 @@ export function useYearDetail(year: string) {
   return useFetch(() => reportsApi.yearDetail(year, filters), [] as MonthlyReportRow[], [year, filters]);
 }
 
+type ReportRows = MonthlyReportRow[] | YearlyReportRow[] | CategoryReportRow[];
+
 export function useReport(grouping: ReportGrouping) {
   const { filters } = useFilters();
   const fn = grouping === 'monthly' ? reportsApi.byMonth : grouping === 'yearly' ? reportsApi.byYear : reportsApi.byCategory;
-  return useFetch(
-    () => fn(filters).then(d => d as MonthlyReportRow[] | YearlyReportRow[] | CategoryReportRow[]),
-    [] as MonthlyReportRow[] | YearlyReportRow[] | CategoryReportRow[],
+  const result = useFetch(
+    () => fn(filters).then(rows => ({ grouping, rows: rows as ReportRows })),
+    { grouping, rows: [] as ReportRows },
     [filters, grouping],
   );
+  // Rows from the previous grouping have a different shape — never hand them to the new grouping's views.
+  const isStale = result.data.grouping !== grouping;
+  return {
+    ...result,
+    data: isStale ? [] : result.data.rows,
+    isLoading: result.isLoading || isStale,
+  };
 }
